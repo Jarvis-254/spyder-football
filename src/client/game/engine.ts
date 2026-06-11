@@ -444,9 +444,7 @@ export class PitchKickGame {
     const kicker = this.controlled;
 
     if (code === 'KeyD') {
-      // Shot — aim at the CPU goal mouth.
-      const ty = clamp(this.ball.y, goalTop + 24, goalBottom - 24);
-      this.kickBallToward({ x: FIELD_W, y: ty }, 660, kicker);
+      this.shootAssisted(kicker);
       return;
     }
 
@@ -454,6 +452,43 @@ export class PitchKickGame {
     const isLong = code === 'KeyA';
     const isThrough = code === 'KeyW';
     if (!isShort && !isLong && !isThrough) return;
+    this.passAssisted(kicker, { isShort, isLong, isThrough });
+  }
+
+  /**
+   * FIFA-style assisted shot: the ball always goes toward the goal you
+   * attack; the vertical arrow input picks the placement in the frame —
+   * up = top corner, down = bottom corner, neutral = center.
+   */
+  private shootAssisted(kicker: PlayerEntity) {
+    let vert = 0;
+    if (this.keys.has('ArrowUp')) vert -= 1;
+    if (this.keys.has('ArrowDown')) vert += 1;
+    // No arrow held at all → fall back to the facing direction's vertical
+    // lean, so curling runs still place shots naturally.
+    const horizontalHeld =
+      this.keys.has('ArrowLeft') || this.keys.has('ArrowRight');
+    if (vert === 0 && !horizontalHeld) {
+      if (kicker.facing.y < -0.45) vert = -1;
+      else if (kicker.facing.y > 0.45) vert = 1;
+    }
+
+    const inset = 18; // inside the post
+    const ty =
+      vert < 0
+        ? goalTop + inset
+        : vert > 0
+          ? goalBottom - inset
+          : (goalTop + goalBottom) / 2;
+
+    this.kickBallToward({ x: FIELD_W - 2, y: ty }, 660, kicker);
+  }
+
+  private passAssisted(
+    kicker: PlayerEntity,
+    opts: { isShort: boolean; isLong: boolean; isThrough: boolean },
+  ) {
+    const { isShort, isLong, isThrough } = opts;
 
     const target = this.pickPassTarget(kicker, { short: isShort, long: isLong });
     if (!target) {

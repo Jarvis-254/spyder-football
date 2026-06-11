@@ -14,9 +14,13 @@ game state yet (no Stores/queries for gameplay).
   `useEffect` keyed on `started`/`gameKey`.
 
 ### Controls (FIFA PC style)
-- Arrows = move, E = sprint, D = shot (aims at CPU goal), S = short pass,
-  A = long pass, W = through pass (leads receiver ~110px toward goal),
-  Q = switch player.
+- Arrows = move, E = sprint, D = shot, S = short pass, A = long pass,
+  W = through pass (leads receiver ~110px toward goal), Q = switch player.
+- Shot assist (`shootAssisted`): shot always goes toward the CPU goal;
+  the VERTICAL arrow held at the moment of pressing D picks placement —
+  Up = top corner (goalTop+18), Down = bottom corner, horizontal-only or
+  none = center. With no arrows held, the kicker's facing.y lean (>0.45)
+  picks the corner. User explicitly requested this FIFA behavior.
 - Passes target a real teammate chosen by facing-direction alignment +
   distance preference (short ~220px, long = farthest forward, through ~320px).
   Control follows YOUR pass to the receiver (user-initiated, FIFA-style).
