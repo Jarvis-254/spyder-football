@@ -370,6 +370,7 @@ export class PitchKickGame {
     this.updateControlled(dt);
     this.updateHomeTeammates(dt);
     this.updateAwayTeam(dt);
+    this.separatePlayers();
     this.resolvePossession();
     this.updateBall(dt);
     this.handleGoals();
@@ -679,16 +680,18 @@ export class PitchKickGame {
     // Possession changed hands.
     if (best && best !== prev) {
       if (prev && prev.team !== best.team) {
-        // Tackle won: protect the winner, lock out the loser briefly,
-        // and knock the ball to the winner's side so it visibly comes free.
-        this.stealProtect = 0.6;
+        // Tackle won: protect the winner and lock out the loser.
+        this.stealProtect = 0.9;
         this.dispossessed = prev;
-        this.dispossessedTimer = 0.9;
+        this.dispossessedTimer = 1.2;
+        // Turn the winner away from the tackled opponent so the dribble
+        // carries the ball out on the FAR side, not back into their feet.
         const dx = best.x - prev.x;
         const dy = best.y - prev.y;
         const l = len(dx, dy);
-        this.ball.x = best.x + (dx / l) * 6;
-        this.ball.y = best.y + (dy / l) * 6;
+        best.facing = { x: dx / l, y: dy / l };
+        this.ball.x = best.x + (dx / l) * (best.r + this.ball.r);
+        this.ball.y = best.y + (dy / l) * (best.r + this.ball.r);
       } else {
         // Clean receive (pass or loose ball) — short protection.
         this.stealProtect = 0.35;
@@ -705,13 +708,45 @@ export class PitchKickGame {
   }
 
   private dribble(owner: PlayerEntity) {
-    const ahead = owner.r + this.ball.r + 4;
+    // While protected (just won a tackle / received), keep the ball glued
+    // to the feet instead of pushed out in front where it can be poked.
+    const ahead =
+      this.stealProtect > 0
+        ? owner.r + this.ball.r - 2
+        : owner.r + this.ball.r + 4;
     const targetX = owner.x + owner.facing.x * ahead;
     const targetY = owner.y + owner.facing.y * ahead;
-    this.ball.x += (targetX - this.ball.x) * 0.3;
-    this.ball.y += (targetY - this.ball.y) * 0.3;
+    const snap = this.stealProtect > 0 ? 0.55 : 0.3;
+    this.ball.x += (targetX - this.ball.x) * snap;
+    this.ball.y += (targetY - this.ball.y) * snap;
     this.ball.vx = owner.vx;
     this.ball.vy = owner.vy;
+  }
+
+  /** Soft circle-vs-circle separation so players can't stand inside each other. */
+  private separatePlayers() {
+    const all = [...this.homePlayers, ...this.awayPlayers];
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) {
+        const a = all[i];
+        const b = all[j];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const d = Math.hypot(dx, dy);
+        const minD = a.r + b.r - 4; // slight overlap allowed for shoulder contact
+        if (d > 0 && d < minD) {
+          const push = (minD - d) / 2;
+          const nx = dx / d;
+          const ny = dy / d;
+          a.x -= nx * push;
+          a.y -= ny * push;
+          b.x += nx * push;
+          b.y += ny * push;
+          this.clampToField(a);
+          this.clampToField(b);
+        }
+      }
+    }
   }
 
   private updateBall(dt: number) {

@@ -58,15 +58,21 @@ game state yet (no Stores/queries for gameplay).
 - Possession: nearest player (either team) within CONTROL_DIST grabs ball;
   kicker is excluded for 0.45s after kicking (`lastKicker`/`kickerLock`) so
   passes aren't instantly re-grabbed; lock clears when anyone receives.
-- Tackling (fixed after user report "keep losing ball after tackle"):
+- Tackling (fixed twice after user reports; v2 fixed the GEOMETRY, not just
+  timers — the dribble used to push the ball ahead of the tackler's facing,
+  i.e. straight back into the opponent):
+  - On tackle win: winner's `facing` is flipped AWAY from the tackled
+    opponent and the ball is placed on that far side.
+  - While `stealProtect` > 0 the dribble glues the ball to the feet
+    (ahead = r+ball.r-2, snap 0.55) instead of 4px out front (snap 0.3).
   - Hysteresis: current owner retains vs challengers unless challenger is
     7px closer to the ball AND `stealProtect` elapsed (same-team takeovers
     bypass the margin).
-  - `stealProtect`: 0.6s after winning a tackle, 0.35s after a clean
-    receive — owner can't be dispossessed during it.
-  - `dispossessed` + 0.9s timer: the player who lost a tackle can't claim
-    possession at all; on tackle the ball is nudged 6px to the winner's side.
-  - All three reset on kickoff.
+  - `stealProtect`: 0.9s after winning a tackle, 0.35s after a clean
+    receive. `dispossessed` lockout: 1.2s (loser can't claim at all).
+  - `separatePlayers()`: soft circle collision each frame (minD = sum of
+    radii - 4) so opponents can't stand inside the carrier.
+  - All timers reset on kickoff.
 - Ball bounces off all walls except goal mouths (no throw-ins yet).
 - 2-minute timer; goals reset to kickoff (conceding team kicks off);
   full-time verdict freezes play.
