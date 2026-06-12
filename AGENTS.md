@@ -107,7 +107,27 @@ game state yet (no Stores/queries for gameplay).
     from CPU chaser selection (unless ball within 200).
 - CPU AI: carrier dribbles toward left goal, shoots when x < 300, passes to a
   more-advanced open teammate when pressured (<85px); nearest non-carrier
-  chases ball with anticipation; rest hold formation. Decisions every 0.45s.
+  chases ball with anticipation; rest use offBallPlan. Decisions every 0.45s.
+- OFF-BALL INTELLIGENCE (`offBallPlan`, both teams, user-requested "players
+  should attack/defend/get open like FIFA"; applies to everyone except the
+  controlled player, the carrier, the away chaser and the home presser):
+  - ATTACK phase (team owns ball): shape pushes up (anchor + ballShift*0.45
+    + 80 toward opponent goal); players level/ahead of carrier (within
+    560px) run in behind to x = carrier.x + 240 (clamped 150..W-150) at
+    RUN_SPEED=200 — this feeds through balls; final spot drifts away from
+    any opponent within 95px ("get open" for passes).
+  - DEFEND phase: compact shape (anchor + ballShift*0.4x/0.35y, -55 toward
+    own goal) + man-marking: `computeMarking()` every 0.35s (markTimer,
+    markAssign Map defender->threat, cleared on kickoff) greedily assigns
+    threats (non-GK attackers within 62% of pitch from defended goal,
+    sorted by danger) to nearest free defender within 320px; excluded:
+    GKs, this.controlled. `markTarget` = 40px off the attacker, direction
+    75% toward own goal + 25% toward ball. Markers move at 190.
+  - HOME PRESSER: nearest non-controlled non-GK home player presses the
+    CPU carrier (or a loose ball last kicked by the CPU — never chases
+    home-kicked balls so teammates don't steal your passes) at
+    PRESS_SPEED=200. Without this the home team never defended.
+  - LOOSE ball: neutral formationTarget shape.
 - Pass powers rescaled for the big pitch: short clamp(d*1.85,300,540),
   long clamp(d*1.5,460,780) cap 900, through clamp(d*1.6,400,640) lead 150,
   short pref ~240, through pref ~380. Pitch markings rescaled: 18 mow

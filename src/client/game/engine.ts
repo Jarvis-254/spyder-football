@@ -57,6 +57,10 @@ const TEAMMATE_SPEED = 155;
 const AWAY_CHASE_SPEED = 180;
 const AWAY_CARRY_SPEED = 165;
 const AWAY_FORMATION_SPEED = 140;
+/** Off-ball forward runs in behind (both teams). */
+const RUN_SPEED = 200;
+/** Closing down the carrier / tracking a marked attacker. */
+const PRESS_SPEED = 200;
 const CONTROL_DIST = PLAYER_R + BALL_R + 11;
 
 /** How quickly velocity approaches the desired velocity (per second). */
@@ -301,6 +305,8 @@ export class PitchKickGame {
     this.stealProtect = 0;
     this.dispossessed = null;
     this.dispossessedTimer = 0;
+    this.markAssign.clear();
+    this.markTimer = 0;
     this.freeze = 0.9;
   }
 
@@ -431,6 +437,12 @@ export class PitchKickGame {
         this.setMessage(verdict, 9999);
         this.freeze = 9999;
       }
+    }
+
+    this.markTimer -= dt;
+    if (this.markTimer <= 0) {
+      this.markTimer = 0.35;
+      this.computeMarking();
     }
 
     this.updateSwitchHint();
@@ -801,7 +813,160 @@ export class PitchKickGame {
     return { x: tx, y: ty };
   }
 
+  // ---- off-ball intelligence (FIFA-style, both teams) ----------------------
+
+  private markAssign = new Map<PlayerEntity, PlayerEntity>();
+  private markTimer = 0;
+
+  /**
+   * Assign defenders to man-mark dangerous opponents, like FIFA marks
+   * attackers who get near the defensive zone. Greedy: the most dangerous
+   * threat (closest to the defended goal) is claimed first by the nearest
+   * free defender within 320px. Recomputed every 0.35s so marks are stable
+   * and don't jitter between assignments.
+   */
+  private computeMarking() {
+    this.markAssign.clear();
+    const owner = this.owner;
+    if (!owner) return;
+    const attackers =
+      owner.team === 'home' ? this.homePlayers : this.awayPlayers;
+    const defenders =
+      owner.team === 'home' ? this.awayPlayers : this.homePlayers;
+    const defGoalX = owner.team === 'home' ? FIELD_W : 0;
+    const threats = attackers
+      .filter(
+        (a) =>
+          a !== owner && !a.isGK && Math.abs(a.x - defGoalX) < FIELD_W * 0.62,
+      )
+      .sort((a, b) => Math.abs(a.x - defGoalX) - Math.abs(b.x - defGoalX));
+    const taken = new Set<PlayerEntity>();
+    for (const threat of threats) {
+      let best: PlayerEntity | null = null;
+      let bestD = 320;
+      for (const def of defenders) {
+        if (def.isGK || def === this.controlled || taken.has(def)) continue;
+        const dd = dist(def, threat);
+        if (dd < bestD) {
+          bestD = dd;
+          best = def;
+        }
+      }
+      if (best) {
+        taken.add(best);
+        this.markAssign.set(best, threat);
+      }
+    }
+  }
+
+  /** Goal-side (slightly ball-side) marking spot 40px off the attacker. */
+  private markTarget(d: PlayerEntity, threat: PlayerEntity): Vec {
+    const goal = { x: d.team === 'home' ? 0 : FIELD_W, y: FIELD_H / 2 };
+    const lg = len(goal.x - threat.x, goal.y - threat.y);
+    const gx = (goal.x - threat.x) / lg;
+    const gy = (goal.y - threat.y) / lg;
+    const lb = len(this.ball.x - threat.x, this.ball.y - threat.y);
+    const bx = (this.ball.x - threat.x) / lb;
+    const by = (this.ball.y - threat.y) / lb;
+    const mx = gx * 0.75 + bx * 0.25;
+    const my = gy * 0.75 + by * 0.25;
+    const ml = len(mx, my);
+    return this.clampTarget({
+      x: threat.x + (mx / ml) * 40,
+      y: threat.y + (my / ml) * 40,
+    });
+  }
+
+  private clampTarget(t: Vec): Vec {
+    return {
+      x: clamp(t.x, 20, FIELD_W - 20),
+      y: clamp(t.y, 20, FIELD_H - 20),
+    };
+  }
+
+  /**
+   * FIFA-style off-ball positioning, used by every player except the
+   * user-controlled one, the carrier, and the active presser/chaser:
+   * - ATTACK (my team has the ball): the shape pushes up and follows the
+   *   ball; players level with or ahead of the carrier make runs in behind;
+   *   everyone drifts away from nearby opponents to stay open for a pass.
+   * - DEFEND (opponent has it): the shape compresses toward our goal and
+   *   shifts with the ball; defenders near dangerous opponents man-mark
+   *   them goal-side (see computeMarking).
+   * - LOOSE ball: neutral ball-shifted formation shape.
+   */
+  private offBallPlan(
+    p: PlayerEntity,
+    baseSpeed: number,
+  ): { pos: Vec; speed: number } {
+    if (p.isGK) return { pos: this.keeperTarget(p), speed: baseSpeed };
+    const dir = p.team === 'home' ? 1 : -1;
+    const owner = this.owner;
+
+    // DEFEND
+    if (owner && owner.team !== p.team) {
+      const mark = this.markAssign.get(p);
+      if (mark) {
+        return { pos: this.markTarget(p, mark), speed: PRESS_SPEED * 0.95 };
+      }
+      return {
+        pos: this.clampTarget({
+          x: p.anchor.x + (this.ball.x - FIELD_W / 2) * 0.4 - dir * 55,
+          y: p.anchor.y + (this.ball.y - FIELD_H / 2) * 0.35,
+        }),
+        speed: baseSpeed,
+      };
+    }
+
+    // ATTACK
+    if (owner && owner.team === p.team) {
+      let speed = baseSpeed;
+      const t = {
+        x: p.anchor.x + (this.ball.x - FIELD_W / 2) * 0.45 + dir * 80,
+        y: p.anchor.y + (this.ball.y - FIELD_H / 2) * 0.2,
+      };
+      // Run in behind when level with / ahead of the carrier and near
+      // the play — this is what creates through-ball targets.
+      if ((p.x - owner.x) * dir > -50 && dist(p, owner) < 560) {
+        t.x = clamp(owner.x + dir * 240, 150, FIELD_W - 150);
+        speed = RUN_SPEED;
+      }
+      // Get open: drift away from the nearest opponent near the spot so
+      // there's always a clean passing option.
+      const pos = this.clampTarget(t);
+      const opps = p.team === 'home' ? this.awayPlayers : this.homePlayers;
+      const near = this.nearestTo(opps, pos);
+      if (near) {
+        const d = dist(near, pos);
+        if (d < 95) {
+          const push = 95 - d;
+          pos.x += ((pos.x - near.x) / (d || 1)) * push;
+          pos.y += ((pos.y - near.y) / (d || 1)) * push;
+        }
+      }
+      return { pos: this.clampTarget(pos), speed };
+    }
+
+    // LOOSE
+    return { pos: this.formationTarget(p), speed: baseSpeed };
+  }
+
   private updateHomeTeammates(dt: number) {
+    const awayCarrier =
+      this.owner && this.owner.team === 'away' ? this.owner : null;
+    // One teammate actively presses the CPU carrier (or races to a loose
+    // ball the CPU last touched) — the user only controls one player, so
+    // without this the team never defends. Everyone else marks/keeps shape.
+    let presser: PlayerEntity | null = null;
+    const candidates = this.homePlayers.filter(
+      (p) => p !== this.controlled && !p.isGK && this.owner !== p,
+    );
+    if (awayCarrier) {
+      presser = this.nearestTo(candidates, awayCarrier);
+    } else if (!this.owner && this.lastKicker?.team === 'away') {
+      presser = this.nearestTo(candidates, this.ball);
+    }
+
     for (const p of this.homePlayers) {
       if (p === this.controlled) continue;
       if (this.owner === p) {
@@ -818,7 +983,16 @@ export class PitchKickGame {
         this.faceToward(p, 1, 0, dt);
         continue;
       }
-      this.moveToward(p, this.formationTarget(p), TEAMMATE_SPEED, dt);
+      if (p === presser) {
+        const t = this.clampTarget({
+          x: this.ball.x + this.ball.vx * 0.18,
+          y: this.ball.y + this.ball.vy * 0.18,
+        });
+        this.moveToward(p, t, PRESS_SPEED, dt);
+        continue;
+      }
+      const plan = this.offBallPlan(p, TEAMMATE_SPEED);
+      this.moveToward(p, plan.pos, plan.speed, dt);
     }
   }
 
@@ -870,7 +1044,8 @@ export class PitchKickGame {
         };
         this.moveToward(p, t, AWAY_CHASE_SPEED, dt);
       } else {
-        this.moveToward(p, this.formationTarget(p), AWAY_FORMATION_SPEED, dt);
+        const plan = this.offBallPlan(p, AWAY_FORMATION_SPEED);
+        this.moveToward(p, plan.pos, plan.speed, dt);
       }
     }
   }
