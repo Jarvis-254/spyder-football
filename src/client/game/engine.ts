@@ -1236,6 +1236,12 @@ export class PitchKickGame {
 
     this.owner = best;
     if (best) {
+      // FIFA-style: when YOUR team gains possession, you control the man
+      // on the ball (the GK distributes by himself). Off-ball switching
+      // remains strictly Q-only.
+      if (best.team === 'home' && !best.isGK) {
+        this.controlled = best;
+      }
       this.dribble(best);
       // Receiving a pass clears the kicker lock so play flows.
       this.lastKicker = null;

@@ -49,8 +49,12 @@ game state yet (no Stores/queries for gameplay).
   marker (`switchHint`) shows who Q would select: home ball-owner if not
   controlled, else nearest home player to ball when meaningfully (30px)
   closer than the controlled one. Solid volt ▼ = controlled player.
-- If a non-controlled home teammate ends up owning the ball, they stand and
-  shield it until the user presses Q to take over.
+- When a home outfield player gains possession (interception, loose ball,
+  received pass), control AUTO-SNAPS to them in `resolvePossession`
+  (FIFA-style: you always control the man on the ball). The GK is the
+  exception — he auto-distributes. Off-ball switching is still Q-only.
+  The old "stand and shield until Q" branch remains only as a fallback
+  (reachable if the user Qs away from the carrier).
 
 ### Visuals: TV broadcast pseudo-3D camera (v3, user-requested)
 - User never wanted pure top-down — wanted FIFA/TV angle. Simulation stays
