@@ -726,7 +726,10 @@ export class PitchKickGame {
           ry /= rl;
         }
       }
-      const lead = 200;
+      // Lead proportional to how fast they're actually running (~0.45s of
+      // their motion), so a standing player gets a short ball to step onto
+      // and only a sprinter gets played properly in behind.
+      const lead = clamp(sp * 0.45, 45, 110);
       aim = {
         x: clamp(target.x + rx * lead, 30, FIELD_W - 30),
         y: clamp(target.y + ry * lead, 20, FIELD_H - 20),
@@ -746,7 +749,7 @@ export class PitchKickGame {
     const power = isLong
       ? this.passPower(d, 320, 1500)
       : isThrough
-        ? this.passPower(d, 300, 1050)
+        ? this.passPower(d, 240, 1050)
         : this.passPower(d, 260, 880);
 
     this.kickBallToward(aim, power, kicker);

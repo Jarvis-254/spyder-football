@@ -155,12 +155,14 @@ game state yet (no Stores/queries for gameplay).
   not reach targets past ~360px. All passes now use friction-aware
   `passPower(d, arrival, max) = min(BALL_DECAY*d + arrival, max)` so the
   ball ARRIVES still rolling at `arrival` px/s: short (260, 880), through
-  (300, 1050), long (320, 1500), GK distribute/clear (300, 1300), CPU
+  (240, 1050), long (320, 1500), GK distribute/clear (300, 1300), CPU
   pass (260, 880). Shots still fixed 660 (unchanged, deliberately).
-- THROUGH BALL aim (v2): leads 200px along the receiver's actual RUN
-  direction (their velocity, when moving >50; else straight at the
-  opponent goal); never leads backwards (forward component forced to
-  0.55 if run points back). Short/long passes still lead vel*0.2.
+- THROUGH BALL aim (v3): leads along the receiver's actual RUN direction
+  (their velocity, when moving >50; else straight at the opponent goal);
+  lead is SPEED-PROPORTIONAL clamp(sp*0.45, 45, 110) — v2's fixed 200px
+  was unreachable (user report). Never leads backwards (forward component
+  forced to 0.55 if run points back). Through arrival speed 240 (was 300,
+  rolled away from the runner). Short/long passes still lead vel*0.2.
   (Receiver selection: see "Pass receiver selection (v2)" above.)
 - Pitch markings rescaled: 18 mow stripes, centre circle r=130, penalty
   box 300x560, six-yard 110x300, GOAL_HEIGHT=240.
