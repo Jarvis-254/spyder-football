@@ -139,11 +139,21 @@ game state yet (no Stores/queries for gameplay).
     CPU carrier (or a loose ball last kicked by the CPU — never chases
     home-kicked balls so teammates don't steal your passes) at
     PRESS_SPEED=200. Without this the home team never defended.
-- Pass powers rescaled for the big pitch: short clamp(d*1.85,300,540),
-  long clamp(d*1.5,460,780) cap 900, through clamp(d*1.6,400,640) lead 150,
-  short pref ~240, through pref ~380. Pitch markings rescaled: 18 mow
-  stripes, centre circle r=130, penalty box 300x560, six-yard 110x300,
-  GOAL_HEIGHT=240.
+- PASS PHYSICS (v2, fixed after user reported passes dying short): ball
+  friction is exponential (BALL_DECAY=1.5/s) so a kick at power v rolls
+  only v/1.5 px TOTAL — old distance-multiplier powers physically could
+  not reach targets past ~360px. All passes now use friction-aware
+  `passPower(d, arrival, max) = min(BALL_DECAY*d + arrival, max)` so the
+  ball ARRIVES still rolling at `arrival` px/s: short (260, 880), through
+  (300, 1050), long (320, 1500), GK distribute/clear (300, 1300), CPU
+  pass (260, 880). Shots still fixed 660 (unchanged, deliberately).
+- THROUGH BALL aim (v2): leads 200px along the receiver's actual RUN
+  direction (their velocity, when moving >50; else straight at the
+  opponent goal); never leads backwards (forward component forced to
+  0.55 if run points back). Short/long passes still lead vel*0.2.
+  Selection prefs: short ~240, long farthest fwd cap 900, through ~380.
+- Pitch markings rescaled: 18 mow stripes, centre circle r=130, penalty
+  box 300x560, six-yard 110x300, GOAL_HEIGHT=240.
 - Possession: nearest player (either team) within CONTROL_DIST grabs ball;
   kicker is excluded for 0.45s after kicking (`lastKicker`/`kickerLock`) so
   passes aren't instantly re-grabbed; lock clears when anyone receives.

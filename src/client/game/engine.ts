@@ -62,6 +62,9 @@ const RUN_SPEED = 200;
 /** Closing down the carrier / tracking a marked attacker. */
 const PRESS_SPEED = 200;
 const CONTROL_DIST = PLAYER_R + BALL_R + 11;
+/** Ball rolling friction (exponential decay per second). A kick at power v
+ *  rolls v/BALL_DECAY px total — pass powers MUST account for this. */
+const BALL_DECAY = 1.5;
 
 /** How quickly velocity approaches the desired velocity (per second). */
 const ACCEL = 8;
@@ -701,11 +704,28 @@ export class PitchKickGame {
 
     let aim: Vec;
     if (isThrough) {
-      // Lead the receiver into space toward the CPU goal.
-      const lead = 150;
+      // Lead the receiver along their actual RUN (FIFA through ball):
+      // play the ball into the space they're heading to, defaulting to
+      // straight at the opponent goal when they're standing still.
+      const atkX = kicker.team === 'home' ? 1 : -1;
+      const sp = Math.hypot(target.vx, target.vy);
+      let rx = atkX;
+      let ry = 0;
+      if (sp > 50) {
+        rx = target.vx / sp;
+        ry = target.vy / sp;
+        // Never lead a through ball backwards.
+        if (rx * atkX < 0.1) {
+          rx = atkX * 0.55;
+          const rl = len(rx, ry);
+          rx /= rl;
+          ry /= rl;
+        }
+      }
+      const lead = 200;
       aim = {
-        x: clamp(target.x + lead, 30, FIELD_W - 20),
-        y: clamp(target.y + target.vy * 0.25, 20, FIELD_H - 20),
+        x: clamp(target.x + rx * lead, 30, FIELD_W - 30),
+        y: clamp(target.y + ry * lead, 20, FIELD_H - 20),
       };
     } else {
       // Aim slightly ahead of where they're moving.
@@ -716,11 +736,14 @@ export class PitchKickGame {
     }
 
     const d = dist(this.ball, aim);
+    // Friction-aware power: arrive at the aim point still rolling at the
+    // given speed (exponential friction covers (v0 - vEnd)/BALL_DECAY px),
+    // instead of dying en route like the old distance multipliers did.
     const power = isLong
-      ? clamp(d * 1.5, 460, 780)
+      ? this.passPower(d, 320, 1500)
       : isThrough
-        ? clamp(d * 1.6, 400, 640)
-        : clamp(d * 1.85, 300, 540);
+        ? this.passPower(d, 300, 1050)
+        : this.passPower(d, 260, 880);
 
     this.kickBallToward(aim, power, kicker);
 
@@ -764,6 +787,11 @@ export class PitchKickGame {
     }
 
     return best;
+  }
+
+  /** Power needed to reach distance d and still roll at `arrival` speed. */
+  private passPower(d: number, arrival: number, max: number) {
+    return Math.min(BALL_DECAY * d + arrival, max);
   }
 
   private kickBallToward(aim: Vec, power: number, kicker: PlayerEntity) {
@@ -1052,7 +1080,7 @@ export class PitchKickGame {
     }
     if (best) {
       const d = dist(this.ball, best);
-      this.kickBallToward(best, clamp(d * 1.4, 480, 740), gk);
+      this.kickBallToward(best, this.passPower(d, 300, 1300), gk);
     }
   }
 
@@ -1107,7 +1135,7 @@ export class PitchKickGame {
       }
       if (best) {
         const d = dist(this.ball, best);
-        this.kickBallToward(best, clamp(d * 1.4, 500, 760), p);
+        this.kickBallToward(best, this.passPower(d, 300, 1300), p);
       }
       return;
     }
@@ -1147,7 +1175,7 @@ export class PitchKickGame {
         const d = dist(this.ball, best);
         this.kickBallToward(
           { x: best.x + best.vx * 0.2, y: best.y + best.vy * 0.2 },
-          clamp(d * 1.85, 300, 560),
+          this.passPower(d, 260, 880),
           p,
         );
       }
@@ -1263,7 +1291,7 @@ export class PitchKickGame {
     this.ball.x += this.ball.vx * dt;
     this.ball.y += this.ball.vy * dt;
 
-    const decay = Math.exp(-1.5 * dt);
+    const decay = Math.exp(-BALL_DECAY * dt);
     this.ball.vx *= decay;
     this.ball.vy *= decay;
     if (Math.hypot(this.ball.vx, this.ball.vy) < 4) {
