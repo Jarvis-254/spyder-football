@@ -23,6 +23,15 @@ game state yet (no Stores/queries for gameplay).
 ### Controls (FIFA PC style)
 - Arrows = move, E = sprint, D = shot, S = short pass, A = long pass,
   W = through pass (leads receiver ~110px toward goal), Q = switch player.
+- KICK CHARGING (FIFA-researched: passes/shots charge on PRESS, execute
+  on RELEASE; hold duration = power): chargeKey/chargeTime fields,
+  CHARGE_FULL=0.8s. Release reads t=0..1; receiver & aim resolved at
+  RELEASE (late lock). Lost ball mid-charge cancels; kickoff resets.
+  Shot power = 500 + 340*t (was fixed 660). Pass power = frictionBase *
+  (0.78 + 0.55*t), capped 1600 — tap arrives soft, full overruns.
+  Gauge UI: green→red bar above the controlled player's ▼ marker (drawn
+  in drawHumanoid marker block via chargeLevel()). justReleased array
+  cleared each frame like justPressed.
 - Shot assist (`shootAssisted`): shot always goes toward the CPU goal.
   The VERTICAL arrow held at the moment of pressing D picks the ZONE of
   the frame (Up = top half, desired spot = top corner; Down = bottom

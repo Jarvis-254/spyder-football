@@ -66,6 +66,10 @@ const CONTROL_DIST = PLAYER_R + BALL_R + 11;
  *  rolls v/BALL_DECAY px total — pass powers MUST account for this. */
 const BALL_DECAY = 1.5;
 
+/** Seconds of holding a kick key for a full power gauge (FIFA-style:
+ *  press charges, release kicks; a tap = minimum power). */
+const CHARGE_FULL = 0.8;
+
 /** How quickly velocity approaches the desired velocity (per second). */
 const ACCEL = 8;
 /** Max turn rate in radians per second. */
@@ -183,6 +187,10 @@ export class PitchKickGame {
 
   private keys = new Set<string>();
   private justPressed: string[] = [];
+  private justReleased: string[] = [];
+  /** Kick key currently charging (FIFA: press charges, release kicks). */
+  private chargeKey: string | null = null;
+  private chargeTime = 0;
 
   private ball = { x: 0, y: 0, vx: 0, vy: 0, r: BALL_R };
   private homePlayers: PlayerEntity[] = [];
@@ -274,6 +282,7 @@ export class PitchKickGame {
   };
 
   private onKeyUp = (e: KeyboardEvent) => {
+    if (KICK_KEYS.has(e.code)) this.justReleased.push(e.code);
     this.keys.delete(e.code);
   };
 
@@ -313,6 +322,8 @@ export class PitchKickGame {
     this.dispossessedTimer = 0;
     this.markAssign.clear();
     this.markTimer = 0;
+    this.chargeKey = null;
+    this.chargeTime = 0;
     this.freeze = 0.9;
   }
 
@@ -427,6 +438,7 @@ export class PitchKickGame {
     if (this.freeze > 0) {
       this.freeze -= dt;
       this.justPressed = [];
+      this.justReleased = [];
       return;
     }
 
@@ -463,6 +475,7 @@ export class PitchKickGame {
     this.updateCamera(dt);
 
     this.justPressed = [];
+    this.justReleased = [];
   }
 
   /** Pan the TV camera toward the ball (with a little velocity lookahead). */
@@ -592,19 +605,48 @@ export class PitchKickGame {
     this.steer(p, tvx, tvy, dt);
 
     const owns = this.owner === p;
-    for (const code of this.justPressed) {
-      if (!owns || !KICK_KEYS.has(code)) continue;
-      this.doHomeKick(code);
+
+    // FIFA-style kick charging: pressing a kick key starts the power
+    // gauge; releasing it executes the kick with the charged power.
+    if (!this.chargeKey && owns) {
+      for (const code of this.justPressed) {
+        if (KICK_KEYS.has(code)) {
+          this.chargeKey = code;
+          this.chargeTime = 0;
+          break;
+        }
+      }
     }
+
+    if (this.chargeKey) {
+      if (!owns) {
+        // Lost the ball mid-charge — cancel.
+        this.chargeKey = null;
+      } else if (this.justReleased.includes(this.chargeKey)) {
+        const t = clamp(this.chargeTime / CHARGE_FULL, 0, 1);
+        const code = this.chargeKey;
+        this.chargeKey = null;
+        this.doHomeKick(code, t);
+      } else {
+        this.chargeTime = Math.min(this.chargeTime + dt, CHARGE_FULL);
+      }
+    }
+  }
+
+  /** 0..1 charge of the in-progress kick, or null (for the HUD gauge). */
+  private chargeLevel(): number | null {
+    if (!this.chargeKey) return null;
+    return clamp(this.chargeTime / CHARGE_FULL, 0, 1);
   }
 
   // ---- kicking / passing --------------------------------------------------
 
-  private doHomeKick(code: string) {
+  /** @param charge 0..1 power gauge from how long the key was held. */
+  private doHomeKick(code: string, charge: number) {
     const kicker = this.controlled;
 
     if (code === 'KeyD') {
-      this.shootAssisted(kicker);
+      this.shootAssisted(kicker, charge);
       return;
     }
 
@@ -612,7 +654,7 @@ export class PitchKickGame {
     const isLong = code === 'KeyA';
     const isThrough = code === 'KeyW';
     if (!isShort && !isLong && !isThrough) return;
-    this.passAssisted(kicker, { isShort, isLong, isThrough });
+    this.passAssisted(kicker, { isShort, isLong, isThrough, charge });
   }
 
   /**
@@ -623,7 +665,7 @@ export class PitchKickGame {
    * lane — i.e. the spot furthest from any blocking player, like FIFA's
    * assisted finishing steering shots away from the keeper/defenders.
    */
-  private shootAssisted(kicker: PlayerEntity) {
+  private shootAssisted(kicker: PlayerEntity, charge: number) {
     let vert = 0;
     if (this.keys.has('ArrowUp')) vert -= 1;
     if (this.keys.has('ArrowDown')) vert += 1;
@@ -683,14 +725,20 @@ export class PitchKickGame {
       }
     }
 
-    this.kickBallToward({ x: goalX, y: bestY }, 660, kicker);
+    // Charge controls shot power: tap = placed side-foot, full = blast.
+    this.kickBallToward({ x: goalX, y: bestY }, 500 + 340 * charge, kicker);
   }
 
   private passAssisted(
     kicker: PlayerEntity,
-    opts: { isShort: boolean; isLong: boolean; isThrough: boolean },
+    opts: {
+      isShort: boolean;
+      isLong: boolean;
+      isThrough: boolean;
+      charge: number;
+    },
   ) {
-    const { isShort, isLong, isThrough } = opts;
+    const { isShort, isLong, isThrough, charge } = opts;
 
     const target = this.pickPassTarget(kicker, {
       short: isShort,
@@ -746,11 +794,16 @@ export class PitchKickGame {
     // Friction-aware power: arrive at the aim point still rolling at the
     // given speed (exponential friction covers (v0 - vEnd)/BALL_DECAY px),
     // instead of dying en route like the old distance multipliers did.
-    const power = isLong
+    const base = isLong
       ? this.passPower(d, 320, 1500)
       : isThrough
         ? this.passPower(d, 240, 1050)
         : this.passPower(d, 260, 880);
+    // FIFA assist: targeting is automatic, but the gauge still matters —
+    // undercharged passes arrive soft/short, overcharged ones run past
+    // the receiver. charge 0.4 ≈ the "right" weight.
+    const scale = 0.78 + 0.55 * charge;
+    const power = Math.min(base * scale, 1600);
 
     this.kickBallToward(aim, power, kicker);
 
@@ -1851,6 +1904,25 @@ export class PitchKickGame {
       ctx.lineTo(q.x + 6.5, topY - 10);
       ctx.closePath();
       ctx.fill();
+
+      // Kick power gauge while a kick key is held (FIFA-style).
+      const charge = this.chargeLevel();
+      if (charge !== null) {
+        const gw = 34;
+        const gh = 5;
+        const gx = q.x - gw / 2;
+        const gy = topY - 22;
+        ctx.fillStyle = 'rgba(8,18,12,0.75)';
+        ctx.beginPath();
+        ctx.roundRect(gx - 1, gy - 1, gw + 2, gh + 2, 3);
+        ctx.fill();
+        // Green → yellow → red as the gauge fills.
+        const hue = 100 - 100 * charge;
+        ctx.fillStyle = `hsl(${hue}, 95%, 55%)`;
+        ctx.beginPath();
+        ctx.roundRect(gx, gy, Math.max(gw * charge, 2), gh, 2);
+        ctx.fill();
+      }
     } else if (p === this.switchHint) {
       ctx.strokeStyle = 'rgba(198,255,46,0.8)';
       ctx.lineWidth = 2;

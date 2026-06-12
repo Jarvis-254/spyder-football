@@ -158,9 +158,10 @@ export default function HomePage() {
       </div>
 
       <p className="mt-5 text-xs text-night-700 font-body text-center max-w-xl">
-        Tip: passes go to the teammate you're facing and hand you control of the
-        receiver. Off the ball, selection is yours — press{' '}
-        <span className="text-volt-400">Q</span> to jump to the hinted ▽ player.
+        Tip: hold a pass/shot key to charge the power gauge, release to kick —
+        a quick tap plays it soft. Aim with the arrows you're holding. Off the
+        ball, press <span className="text-volt-400">Q</span> to jump to the
+        hinted ▽ player.
       </p>
     </div>
   );
