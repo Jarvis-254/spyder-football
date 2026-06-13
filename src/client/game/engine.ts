@@ -1038,10 +1038,12 @@ export class PitchKickGame {
 
   /**
    * FIFA-style receiver selection: the HELD ARROW direction picks the
-   * target — the first teammate in the aimed cone wins, with alignment
-   * dominating. No preferred-distance bands (the old ~380px through-ball
-   * band made W skip the close runner for a farther one). Long passes
-   * keep a mild bonus for distance so A finds the far outlet.
+   * target, with alignment dominating — but the PASSING LANE openness is
+   * also scored so a teammate with a defender standing in the straight-line
+   * lane is demoted in favour of an equally-aimed teammate in space (FIFA
+   * assisted passing avoids threading the ball into a defender's feet).
+   * Long passes are LOFTED over the defence, so ground blockers don't count
+   * against them. No preferred-distance bands.
    */
   private pickPassTarget(
     kicker: PlayerEntity,
@@ -1051,6 +1053,7 @@ export class PitchKickGame {
     const mates = (
       kicker.team === 'home' ? this.homePlayers : this.awayPlayers
     ).filter((p) => p !== kicker && !(opts.through && p.isGK));
+    const opps = kicker.team === 'home' ? this.awayPlayers : this.homePlayers;
 
     let best: PlayerEntity | null = null;
     let bestScore = -Infinity;
@@ -1073,6 +1076,33 @@ export class PitchKickGame {
         score -= d * (opts.short ? 0.3 : 0.22);
       }
 
+      // Passing-lane openness (ground passes only — a lofted long ball flies
+      // over). Endpoint mirrors the aim used in passAssisted: short = at the
+      // receiver, through = led ahead into their run. An opponent sitting in
+      // the lane heavily demotes this receiver so an open one wins instead.
+      if (!opts.long) {
+        const end = this.passLaneEnd(kicker, m, opts.through);
+        let clearance = Infinity;
+        for (const o of opps) {
+          if (o.isGK) continue;
+          // Ignore a defender right on the kicker's back — he sits at the
+          // start of EVERY lane (so wouldn't change ranking) and is already
+          // handled by the just-kicked grace. Only true lane blockers count.
+          if (dist(o, kicker) < 34) continue;
+          clearance = Math.min(
+            clearance,
+            distToSegment(o, kicker, end) - o.r,
+          );
+        }
+        // A clear channel (>~26px either side) is fine; the tighter the lane,
+        // the bigger the penalty, so a body in the lane (clearance≈0) is a
+        // strong deterrent without being an absolute veto.
+        const LANE_OK = 26;
+        if (clearance < LANE_OK) {
+          score -= (LANE_OK - Math.max(clearance, -10)) * 7;
+        }
+      }
+
       if (score > bestScore) {
         bestScore = score;
         best = m;
@@ -1080,6 +1110,38 @@ export class PitchKickGame {
     }
 
     return best;
+  }
+
+  /** Estimated endpoint of a ground pass to `m`, matching passAssisted's aim
+   *  (short = a touch ahead of the receiver, through = led into their run) —
+   *  used to evaluate how open the passing lane is. */
+  private passLaneEnd(
+    kicker: PlayerEntity,
+    m: PlayerEntity,
+    through: boolean,
+  ): Vec {
+    if (!through) {
+      return { x: m.x + m.vx * 0.2, y: m.y + m.vy * 0.2 };
+    }
+    const atkX = kicker.team === 'home' ? 1 : -1;
+    const sp = Math.hypot(m.vx, m.vy);
+    let rx = atkX;
+    let ry = 0;
+    if (sp > 50) {
+      rx = m.vx / sp;
+      ry = m.vy / sp;
+      if (rx * atkX < 0.1) {
+        rx = atkX * 0.55;
+        const rl = len(rx, ry);
+        rx /= rl;
+        ry /= rl;
+      }
+    }
+    const lead = clamp(sp * 0.45, 45, 110);
+    return {
+      x: clamp(m.x + rx * lead, 30, FIELD_W - 30),
+      y: clamp(m.y + ry * lead, 20, FIELD_H - 20),
+    };
   }
 
   /** Power needed to reach distance d and still roll at `arrival` speed. */

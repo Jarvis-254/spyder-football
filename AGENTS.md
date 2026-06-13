@@ -97,6 +97,18 @@ game state yet (no Stores/queries for gameplay).
   (old ~380 through band caused the skip). Through passes exclude the GK.
   No-target fallback knock also uses heldDir.
   Control follows YOUR pass to the receiver (user-initiated, FIFA-style).
+- PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
+  receiver selection now also scores how OPEN the passing lane is, not just
+  alignment+distance. For ground passes (short/through, NOT lofted long) each
+  mate's lane endpoint (`passLaneEnd`: short = receiver +vel*0.2, through =
+  led into their run, mirrors passAssisted's aim) is tested vs every outfield
+  opponent via distToSegment - o.r. If clearance < LANE_OK(26px) the mate is
+  penalized (LANE_OK-clearance)*7 — a defender in the lane (clearance≈0) ≈
+  -180, strong enough to flip to an open teammate in the same direction but
+  not an absolute veto. Opponents within 34px of the kicker are IGNORED (the
+  back-presser sits at the start of every lane; handled by ballFree grace).
+  Long passes skip the lane test (they fly over). This is the FIFA-assist
+  behaviour: avoid threading the ball into a defender's feet.
 - Switch selection (`switchScore`, lower = better): when CPU has the ball,
   candidates are scored by distance to an INTERCEPT point ~70px ahead of
   the carrier (direction = 50/50 blend of "toward home goal at x=0" and
