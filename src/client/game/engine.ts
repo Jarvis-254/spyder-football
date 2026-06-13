@@ -2285,33 +2285,41 @@ export class PitchKickGame {
       const sockC = far ? shade(sockColor, 0.86) : sockColor;
       ctx.lineCap = 'round';
 
-      // Thigh.
+      // Thigh (~0.14m).
       ctx.strokeStyle = skinC;
-      ctx.lineWidth = 3.7;
+      ctx.lineWidth = 3.3;
       ctx.beginPath();
       ctx.moveTo(hx, hy);
       ctx.lineTo(kneeX, kneeY);
       ctx.stroke();
 
-      // Shin (skin upper, sock lower).
+      // Shin (skin upper ~0.11m calf, sock lower tapering to ~0.07m ankle).
       const calfX = kneeX + (fX - kneeX) * 0.4;
       const calfY = kneeY + (fY - kneeY) * 0.4;
-      ctx.lineWidth = 3.3;
+      ctx.lineWidth = 2.8;
       ctx.beginPath();
       ctx.moveTo(kneeX, kneeY);
       ctx.lineTo(calfX, calfY);
       ctx.stroke();
+      // Sock tapers toward the ankle: draw two segments, thinner near the foot.
+      const ankX = calfX + (fX - calfX) * 0.55;
+      const ankY = calfY + (fY - calfY) * 0.55;
       ctx.strokeStyle = sockC;
-      ctx.lineWidth = 3.1;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(calfX, calfY);
+      ctx.lineTo(ankX, ankY);
+      ctx.stroke();
+      ctx.lineWidth = 1.9;
+      ctx.beginPath();
+      ctx.moveTo(ankX, ankY);
       ctx.lineTo(fX, fY);
       ctx.stroke();
 
       // Knee joint highlight.
       ctx.fillStyle = skinC;
       ctx.beginPath();
-      ctx.arc(kneeX, kneeY, 1.8, 0, Math.PI * 2);
+      ctx.arc(kneeX, kneeY, 1.5, 0, Math.PI * 2);
       ctx.fill();
 
       // Boot: dark sole with a bright kit-accent flash, angled along the
@@ -2322,11 +2330,11 @@ export class PitchKickGame {
       ctx.rotate(bootAng * 0.25);
       ctx.fillStyle = far ? '#0a0c0f' : '#121419';
       ctx.beginPath();
-      ctx.ellipse(forward * 1.4, 0, 3.7, 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(forward * 1.4, 0, 3.5, 1.4, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = far ? shade(kit.sleeve, 0.8) : kit.sleeve;
       ctx.beginPath();
-      ctx.ellipse(forward * 2, -0.7, 1.5, 0.7, 0, 0, Math.PI * 2);
+      ctx.ellipse(forward * 2, -0.5, 1.3, 0.5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     };

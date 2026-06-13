@@ -114,6 +114,12 @@ game state yet (no Stores/queries for gameplay).
   roundRect(-5,...,10,8) (was -6,12). Arms lineWidth 2.5 ≈0.10m (was 3),
   anchors dir*4.8/6/4.4, hand r1.4 (was 5.5/7/5, r1.6). Limbs were ~15-20%
   too broad before this pass.
+- LEG/BOOT THICKNESS audited to true scale (1 local unit ≈0.042m): thigh
+  lineWidth 3.3 (~0.14m), shin 2.8 (~0.11m calf), sock tapers 2.5→1.9 toward
+  the ankle (~0.07m), knee dot 1.5, boot ellipse 3.5×1.4 + accent 1.3×0.5.
+  NOTE: ball is ALREADY true-scale (diameter ≈4.38×s px) and is slightly
+  BIGGER than a leg (thigh ≈2.9×s px) — when a user says "ball smaller than
+  legs" the fix is THINNER LEGS, not a bigger ball.
 - LEGS are TWO-BONE IK (`drawLeg(footX,footY,lift,hipX,far)`): SEG=10.8
   thigh≈shin, knee solved at half hip→foot distance + perpendicular rigid
   offset (hgt=sqrt(SEG²-a²)) bent FORWARD (perp x-sign matched to facing),
