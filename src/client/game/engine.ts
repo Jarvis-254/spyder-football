@@ -15,19 +15,20 @@ export const CANVAS_H = 700;
 // touchlines). The renderer projects it like a TV camera: the far touchline
 // (y=0) is drawn smaller and higher, the near touchline (y=FIELD_H) bigger
 // and lower, and everything scales with depth.
-const S_FAR = 0.56; // scale at the far touchline
-const S_NEAR = 1.0; // scale at the near touchline
-const PITCH_TOP = 116; // screen y of the far touchline
-const PITCH_DRAW_H = 510; // screen height of the pitch
+const S_FAR = 0.66; // scale at the far touchline (camera pulled closer)
+const S_NEAR = 1.24; // scale at the near touchline
+const PITCH_TOP = 110; // screen y of the far touchline
+const PITCH_DRAW_H = 560; // screen height of the pitch
 const AVG_S = (S_FAR + S_NEAR) / 2;
 
 // The camera pans horizontally to follow the ball (FIFA tele cam) — only a
 // section of the pitch is visible at a time. `viewCamX` is the field x the
 // camera is centred on; the engine updates it every frame before rendering.
 let viewCamX = FIELD_W / 2;
-/** Camera clamp so the goal + some behind-goal apron stays on screen. */
-const CAM_MIN = 500;
-const CAM_MAX = FIELD_W - 500;
+/** Camera clamp so the goal + some behind-goal apron stays on screen.
+ *  Pulled in with the closer zoom so the goalmouth stays framed. */
+const CAM_MIN = 580;
+const CAM_MAX = FIELD_W - 580;
 
 /** Project field coordinates to screen coordinates. */
 function proj(x: number, y: number): { x: number; y: number; s: number } {
@@ -101,6 +102,8 @@ interface PlayerEntity {
   skin: string;
   isGK: boolean;
   role: Role;
+  /** Shirt number, shown on the back of the jersey. */
+  num: number;
 }
 
 export interface HudState {
@@ -144,6 +147,8 @@ const KICKOFF_FWD = 9;
 
 const HAIR_COLORS = ['#2b2118', '#0e0c0a', '#5a3b1e', '#857058'];
 const SKIN_TONES = ['#e0ac7e', '#c98c5e', '#8d5a3b', '#f0c49a'];
+// Shirt numbers by formation index (GK..STs).
+const SHIRT_NUMBERS = [1, 2, 5, 6, 3, 7, 8, 4, 11, 9, 10];
 
 interface Kit {
   shirt: string;
@@ -172,6 +177,15 @@ function dist(a: { x: number; y: number }, b: { x: number; y: number }) {
 
 function clamp(v: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, v));
+}
+
+/** Lighten (f>1) or darken (f<1) a #rrggbb colour by a multiplier. */
+function shade(hex: string, f: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = clamp(Math.round(((n >> 16) & 255) * f), 0, 255);
+  const g = clamp(Math.round(((n >> 8) & 255) * f), 0, 255);
+  const b = clamp(Math.round((n & 255) * f), 0, 255);
+  return `rgb(${r},${g},${b})`;
 }
 
 /** Distance from point p to the line segment a→b. */
@@ -262,6 +276,7 @@ export class PitchKickGame {
       skin: SKIN_TONES[(i + (team === 'away' ? 1 : 0)) % SKIN_TONES.length],
       isGK: i === 0,
       role: i === 0 ? 'GK' : i <= 4 ? 'DF' : i <= 8 ? 'MF' : 'ST',
+      num: SHIRT_NUMBERS[i],
     };
   }
 
@@ -1745,19 +1760,28 @@ export class PitchKickGame {
   }
 
   private drawPitch(ctx: CanvasRenderingContext2D) {
-    // Grass apron slightly beyond the lines.
+    // Grass apron slightly beyond the lines, with a depth gradient (darker
+    // toward the far line for an under-lights TV look).
+    const apronTop = proj(0, -26).y;
+    const apronBot = proj(0, FIELD_H + 34).y;
+    const apronGrad = ctx.createLinearGradient(0, apronTop, 0, apronBot);
+    apronGrad.addColorStop(0, '#16562c');
+    apronGrad.addColorStop(1, '#1f7a3f');
     this.projPath(ctx, [
       { x: -MARGIN, y: -26 },
       { x: FIELD_W + MARGIN, y: -26 },
       { x: FIELD_W + MARGIN, y: FIELD_H + 34 },
       { x: -MARGIN, y: FIELD_H + 34 },
     ]);
-    ctx.fillStyle = '#1f6e3a';
+    ctx.fillStyle = apronGrad;
     ctx.fill();
 
-    // Mow stripes (vertical bands converging toward the far line).
-    const stripes = 18;
+    // Mow stripes (vertical bands). Each band gets its own vertical depth
+    // gradient so the turf reads as lit from the near side.
+    const stripes = 20;
     const sw = FIELD_W / stripes;
+    const pitchTopY = proj(0, 0).y;
+    const pitchBotY = proj(0, FIELD_H).y;
     for (let i = 0; i < stripes; i++) {
       this.projPath(ctx, [
         { x: i * sw, y: 0 },
@@ -1765,12 +1789,33 @@ export class PitchKickGame {
         { x: (i + 1) * sw, y: FIELD_H },
         { x: i * sw, y: FIELD_H },
       ]);
-      ctx.fillStyle = i % 2 === 0 ? '#258044' : '#22783f';
+      const g = ctx.createLinearGradient(0, pitchTopY, 0, pitchBotY);
+      if (i % 2 === 0) {
+        g.addColorStop(0, '#1e7038');
+        g.addColorStop(1, '#2f9351');
+      } else {
+        g.addColorStop(0, '#1a6733');
+        g.addColorStop(1, '#298a49');
+      }
+      ctx.fillStyle = g;
       ctx.fill();
     }
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.78)';
+    // Faint horizontal mow texture lines for extra turf detail.
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.lineWidth = 1;
+    for (let j = 1; j < 9; j++) {
+      const y = (FIELD_H * j) / 9;
+      this.projPath(ctx, [
+        { x: 0, y },
+        { x: FIELD_W, y },
+      ], false);
+      ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.82)';
     ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
 
     // Touchlines + goal lines.
     this.projPath(ctx, [
@@ -1789,47 +1834,90 @@ export class PitchKickGame {
     ctx.stroke();
 
     // Centre circle (projected → ellipse-ish, sampled).
-    const circle: Vec[] = [];
-    for (let i = 0; i <= 40; i++) {
-      const a = (i / 40) * Math.PI * 2;
-      circle.push({
-        x: FIELD_W / 2 + Math.cos(a) * 130,
-        y: FIELD_H / 2 + Math.sin(a) * 130,
-      });
-    }
-    this.projPath(ctx, circle, false);
-    ctx.stroke();
-    const spot = proj(FIELD_W / 2, FIELD_H / 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.beginPath();
-    ctx.arc(spot.x, spot.y, 3 * spot.s, 0, Math.PI * 2);
-    ctx.fill();
+    this.strokeArc(ctx, FIELD_W / 2, FIELD_H / 2, 130, 0, Math.PI * 2);
+    this.spot(ctx, FIELD_W / 2, FIELD_H / 2);
 
     // Penalty boxes + six-yard boxes.
     const boxH = 560;
     const boxW = 300;
     const sixH = 300;
     const sixW = 110;
+    const pkX = 200; // penalty-spot depth from the goal line
     const by = (FIELD_H - boxH) / 2;
     const sy = (FIELD_H - sixH) / 2;
     for (const left of [true, false]) {
+      const gx = left ? 0 : FIELD_W;
+      const dir = left ? 1 : -1;
       this.projPath(ctx, [
-        { x: left ? 0 : FIELD_W, y: by },
-        { x: left ? boxW : FIELD_W - boxW, y: by },
-        { x: left ? boxW : FIELD_W - boxW, y: by + boxH },
-        { x: left ? 0 : FIELD_W, y: by + boxH },
+        { x: gx, y: by },
+        { x: gx + dir * boxW, y: by },
+        { x: gx + dir * boxW, y: by + boxH },
+        { x: gx, y: by + boxH },
       ], false);
       ctx.stroke();
-    }
-    for (const left of [true, false]) {
       this.projPath(ctx, [
-        { x: left ? 0 : FIELD_W, y: sy },
-        { x: left ? sixW : FIELD_W - sixW, y: sy },
-        { x: left ? sixW : FIELD_W - sixW, y: sy + sixH },
-        { x: left ? 0 : FIELD_W, y: sy + sixH },
+        { x: gx, y: sy },
+        { x: gx + dir * sixW, y: sy },
+        { x: gx + dir * sixW, y: sy + sixH },
+        { x: gx, y: sy + sixH },
       ], false);
       ctx.stroke();
+      // Penalty spot + the "D" arc poking out of the box.
+      const px = gx + dir * pkX;
+      this.spot(ctx, px, FIELD_H / 2);
+      const cos = (boxW - pkX) / 130; // where the arc crosses the box edge
+      const a = Math.acos(clamp(cos, -1, 1));
+      if (left) this.strokeArc(ctx, px, FIELD_H / 2, 130, -a, a);
+      else this.strokeArc(ctx, px, FIELD_H / 2, 130, Math.PI - a, Math.PI + a);
     }
+
+    // Corner arcs.
+    for (const cx of [0, FIELD_W]) {
+      for (const cy of [0, FIELD_H]) {
+        const a0 = cx === 0 ? 0 : Math.PI;
+        const sign = cy === 0 ? 1 : -1;
+        this.strokeArc(ctx, cx, cy, 26, a0, a0 + sign * (Math.PI / 2));
+      }
+    }
+    ctx.lineJoin = 'miter';
+
+    // Soft vignette so the framed view feels like a broadcast camera.
+    const vg = ctx.createRadialGradient(
+      CANVAS_W / 2, CANVAS_H * 0.46, CANVAS_H * 0.3,
+      CANVAS_W / 2, CANVAS_H * 0.5, CANVAS_H * 0.95,
+    );
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.34)');
+    ctx.fillStyle = vg;
+    ctx.fillRect(0, PITCH_TOP - 20, CANVAS_W, CANVAS_H - PITCH_TOP + 20);
+  }
+
+  /** Stroke a field-space circle/arc sampled through the projection. */
+  private strokeArc(
+    ctx: CanvasRenderingContext2D,
+    cx: number,
+    cy: number,
+    r: number,
+    a0: number,
+    a1: number,
+  ) {
+    const pts: Vec[] = [];
+    const steps = 36;
+    for (let i = 0; i <= steps; i++) {
+      const a = a0 + (a1 - a0) * (i / steps);
+      pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r });
+    }
+    this.projPath(ctx, pts, false);
+    ctx.stroke();
+  }
+
+  /** A small filled pitch marking (centre/penalty spot). */
+  private spot(ctx: CanvasRenderingContext2D, x: number, y: number) {
+    const q = proj(x, y);
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.beginPath();
+    ctx.arc(q.x, q.y, 2.6 * q.s, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   // Goal frame: posts stand upright on screen; the mouth spans depth
@@ -1985,6 +2073,9 @@ export class PitchKickGame {
     ctx.save();
     ctx.translate(q.x, q.y);
     ctx.scale(s, s);
+    // Lean into the run direction for a sense of momentum.
+    const lean = moving ? clamp(p.vx / SPRINT_SPEED, -1, 1) * 0.13 : 0;
+    ctx.rotate(lean);
 
     const H = 44; // body height at scale 1
     const hipY = -H * 0.42;
@@ -2032,10 +2123,14 @@ export class PitchKickGame {
       ctx.moveTo((kneeX + footX) / 2, (kneeY + fy2) / 2 - 2);
       ctx.lineTo(footX, fy2 - 2.5);
       ctx.stroke();
-      // Boot.
-      ctx.fillStyle = '#16181d';
+      // Boot: dark sole with a bright kit-accent flash.
+      ctx.fillStyle = '#101216';
       ctx.beginPath();
-      ctx.ellipse(footX + side * 1.4, fy2 - 1, 3.4, 1.9, 0, 0, Math.PI * 2);
+      ctx.ellipse(footX + side * 1.4, fy2 - 1, 3.6, 2, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = kit.sleeve;
+      ctx.beginPath();
+      ctx.ellipse(footX + side * 1.9, fy2 - 1.6, 1.5, 0.7, 0, 0, Math.PI * 2);
       ctx.fill();
     };
 
@@ -2044,7 +2139,12 @@ export class PitchKickGame {
     drawLeg(f1x, f1y, f1Lift, side * 2.2);
 
     // Shorts.
-    ctx.fillStyle = '#f4f6f9';
+    const shortsGrad = ctx.createLinearGradient(
+      0, hipY + bob - 5, 0, hipY + bob + 3,
+    );
+    shortsGrad.addColorStop(0, '#ffffff');
+    shortsGrad.addColorStop(1, '#dfe4ea');
+    ctx.fillStyle = shortsGrad;
     ctx.beginPath();
     ctx.roundRect(-6, hipY + bob - 5, 12, 8, 3);
     ctx.fill();
@@ -2075,8 +2175,13 @@ export class PitchKickGame {
     };
     drawArm(-side, -armSwing * side);
 
-    // Torso (shirt).
-    ctx.fillStyle = kit.shirt;
+    // Torso (shirt) with a soft top-lit gradient.
+    const torsoGrad = ctx.createLinearGradient(
+      0, shoulderY + bob, 0, hipY + bob,
+    );
+    torsoGrad.addColorStop(0, shade(kit.shirt, 1.18));
+    torsoGrad.addColorStop(1, shade(kit.shirt, 0.86));
+    ctx.fillStyle = torsoGrad;
     ctx.beginPath();
     ctx.moveTo(-6.5, shoulderY + bob + 1);
     ctx.quadraticCurveTo(0, shoulderY + bob - 2.5, 6.5, shoulderY + bob + 1);
@@ -2087,20 +2192,49 @@ export class PitchKickGame {
     ctx.strokeStyle = kit.outline;
     ctx.lineWidth = 1;
     ctx.stroke();
-    // Kit stripe.
+    // Side seam stripe.
     ctx.strokeStyle = kit.sleeve;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(side * 3.4, shoulderY + bob + 0.5);
     ctx.lineTo(side * 2.8, hipY + bob - 3);
     ctx.stroke();
+    // Collar.
+    ctx.strokeStyle = shade(kit.shirt, 0.7);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(0, shoulderY + bob + 1, 2.2, 0.15 * Math.PI, 0.85 * Math.PI);
+    ctx.stroke();
+    // Shirt number (only legible when we see the player's back).
+    if (toward < 0.1) {
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      ctx.font = 'bold 6px Oswald, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(p.num), 0, (shoulderY + hipY) / 2 + bob);
+    }
 
     // Near arm (in front of torso).
     drawArm(side, armSwing * side);
 
+    // Neck.
+    ctx.strokeStyle = shade(p.skin, 0.92);
+    ctx.lineWidth = 2.4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, shoulderY + bob - 1);
+    ctx.lineTo(fx * 1.2, headY + bob + 3);
+    ctx.stroke();
+
     // Head + hair, orientation hints from facing.
     const headX = fx * 1.6;
-    ctx.fillStyle = p.skin;
+    const headGrad = ctx.createRadialGradient(
+      headX - 1.4, headY + bob - 1.4, 0.8,
+      headX, headY + bob, 4.4,
+    );
+    headGrad.addColorStop(0, shade(p.skin, 1.12));
+    headGrad.addColorStop(1, shade(p.skin, 0.9));
+    ctx.fillStyle = headGrad;
     ctx.beginPath();
     ctx.arc(headX, headY + bob, 4.4, 0, Math.PI * 2);
     ctx.fill();

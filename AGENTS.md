@@ -10,8 +10,11 @@ game state yet (no Stores/queries for gameplay).
   Field is 2200x950 with a 56px margin (`CANVAS_W=1162`/`CANVAS_H=700`
   exported). The camera only shows part of the pitch (FIFA tele cam style):
   engine `camX` follows ball + vel*0.25 lookahead with exponential smoothing
-  (k = 1-exp(-2.6dt)), clamped to CAM_MIN=500..CAM_MAX=FIELD_W-500. Render
+  (k = 1-exp(-2.6dt)), clamped to CAM_MIN=580..CAM_MAX=FIELD_W-580. Render
   syncs module-level `viewCamX` from it; `proj()` offsets x by viewCamX.
+  CLOSER ZOOM: S_FAR=0.66, S_NEAR=1.24, PITCH_TOP=110, PITCH_DRAW_H=560
+  (was 0.56/1.0/116/510). CAM_MIN/MAX widened to 580 to keep goalmouths
+  framed at the closer zoom.
   Full pitch depth (y) is always visible — pan is horizontal only.
   Players projected off-screen (±60px) are culled; crowd dots + hoarding
   span the whole pannable range and parallax with the camera.
@@ -82,14 +85,23 @@ game state yet (no Stores/queries for gameplay).
   scale lerp S_FAR=0.56 (far touchline, y=0) → S_NEAR=1.0 (near, y=FIELD_H);
   screenY uses the INTEGRAL of scale so vertical foreshortening is correct.
   PITCH_TOP=116, PITCH_DRAW_H=510, CANVAS_H=700 (CANVAS_W unchanged).
-- `drawHumanoid()` now draws UPRIGHT footballers at foot position, scaled
-  by depth: two-tone legs (skin + sock + boot) scissor with distance-driven
-  `animPhase`, lift on swing, kick pose extends striking leg, arms counter-
-  swing (far arm behind torso, near in front), shirt + white shorts, head
-  shows back-of-head hair when facing away (facing.y < -0.3), mirror by
-  facing.x sign. Body height 44 at scale 1. Markers ▼/▽ at q.y - 50*s.
-- Pitch: `projPath()` helper projects polygons; trapezoid grass apron, 12
-  converging mow stripes, projected lines/boxes/centre circle (sampled).
+- `drawHumanoid()` draws UPRIGHT footballers at foot position, scaled by
+  depth: two-tone legs (skin + sock + boot w/ kit-accent flash) scissor with
+  distance-driven `animPhase`, lift on swing, kick pose extends striking leg,
+  arms counter-swing (far arm behind torso, near in front). GRAPHICS PASS:
+  running LEAN (ctx.rotate(vx/SPRINT*0.13) when moving), torso vertical
+  GRADIENT via shade() helper, collar arc, side seam, shirt NUMBER (per
+  SHIRT_NUMBERS[i], drawn only when toward<0.1 = seeing the back), neck
+  segment, radial head-shading gradient, gradient shorts. Head shows
+  back-of-head hair when facing away (facing.y<-0.3), mirror by facing.x
+  sign. Body height 44 at scale 1. Markers ▼/▽ at q.y - 50*s.
+  `shade(hex,f)` global helper lightens/darkens #rrggbb by a factor.
+- Pitch: `projPath()` helper projects polygons. GRAPHICS PASS: 20 mow
+  stripes each with its own vertical depth gradient, gradient apron, faint
+  horizontal mow-texture lines, projected lines/boxes, centre circle + spot,
+  penalty SPOTS + "D" arcs (via `strokeArc()`), corner arcs, and a radial
+  VIGNETTE overlay. `strokeArc(cx,cy,r,a0,a1)` samples a field-space arc
+  through proj; `spot(x,y)` draws a marking dot.
 - Goals are REAL standing frames: `goalGeom()` posts at (0|FIELD_W,
   goalTop/goalBottom), postH=58*s, net mesh + back structure drawn BEFORE
   players (`drawGoalBack`), posts+crossbar AFTER (`drawGoalFront`).
