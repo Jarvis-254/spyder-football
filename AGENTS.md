@@ -27,11 +27,15 @@ game state yet (no Stores/queries for gameplay).
   on RELEASE; hold duration = power): chargeKey/chargeTime fields,
   CHARGE_FULL=0.8s. Release reads t=0..1; receiver & aim resolved at
   RELEASE (late lock). Lost ball mid-charge cancels; kickoff resets.
-  Shot power = 500 + 340*t (was fixed 660). Pass power = frictionBase *
-  (0.78 + 0.55*t), capped 1600 — tap arrives soft, full overruns.
-  Gauge UI: green→red bar above the controlled player's ▼ marker (drawn
-  in drawHumanoid marker block via chargeLevel()). justReleased array
-  cleared each frame like justPressed.
+  Shot power = 430 + 870*t (~3x spread so charge is clearly felt; was
+  500+340 which felt flat). Pass power = frictionBase * (0.78 + 0.55*t),
+  capped 1600 — tap arrives soft, full overruns.
+  Gauge UI: FIFA-style FIXED power meter — `drawPowerMeter(ctx)` called
+  last in render(), a 320x16 rounded bar centred at bottom of screen
+  (y=CANVAS_H-34), green→yellow→red gradient with diagonal chevron ticks
+  and a "POWER" label, only while chargeLevel()!=null. (Replaced the old
+  tiny above-the-player gauge — FIFA shows power bottom-centre, not on the
+  player.) justReleased array cleared each frame like justPressed.
 - Shot assist (`shootAssisted`): shot always goes toward the CPU goal.
   The VERTICAL arrow held at the moment of pressing D picks the ZONE of
   the frame (Up = top half, desired spot = top corner; Down = bottom
