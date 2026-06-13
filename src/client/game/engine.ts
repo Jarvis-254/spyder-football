@@ -289,6 +289,10 @@ export class PitchKickGame {
   private tackleDir: Vec = { x: 1, y: 0 };
   /** Accumulated body-contact time on the carrier (auto jostle steal). */
   private jostle = 0;
+  /** Grace window right after a kick: the ball is "in flight" and NOBODY can
+   *  claim it, so a just-struck shot/pass clears the cluster instead of being
+   *  instantly received by an opponent standing point-blank at the kicker. */
+  private ballFree = 0;
 
   private homeScore = 0;
   private awayScore = 0;
@@ -413,6 +417,7 @@ export class PitchKickGame {
     this.chargeTime = 0;
     this.bufferTimer = 0;
     this.kickPending = false;
+    this.ballFree = 0;
     this.tackleTimer = 0;
     this.tackleCooldown = 0;
     this.jostle = 0;
@@ -517,6 +522,7 @@ export class PitchKickGame {
     }
     if (this.kickerLock > 0) this.kickerLock -= dt;
     else this.lastKicker = null;
+    if (this.ballFree > 0) this.ballFree -= dt;
     if (this.cpuDecision > 0) this.cpuDecision -= dt;
     if (this.stealProtect > 0) this.stealProtect -= dt;
     if (this.tackleCooldown > 0) this.tackleCooldown -= dt;
@@ -1104,6 +1110,14 @@ export class PitchKickGame {
     this.lastKicker = kicker;
     this.kickerLock = 0.45;
     kicker.kickTimer = 0.28;
+    // The struck ball is briefly untouchable so it physically leaves the
+    // kicker's body cluster before anyone (esp. an opponent leaning on the
+    // kicker's back) can claim it — otherwise the kick is "canceled" the same
+    // frame it's launched. ~0.12s ≈ 100-150px of travel at pass/shot speed,
+    // enough to clear bodies while a defender genuinely down the lane can
+    // still intercept.
+    this.ballFree = 0.12;
+    this.jostle = 0;
   }
 
   // ---- teammates AI (home, non-controlled) --------------------------------
@@ -1577,6 +1591,14 @@ export class PitchKickGame {
     // A ball above chest height flies over everyone — nobody can trap it
     // until it drops back down (FIFA: lofted balls sail past players).
     if (this.ball.z > CONTROL_HEIGHT) {
+      this.owner = null;
+      return;
+    }
+
+    // Just-kicked grace: the ball is in flight and untouchable for a beat so
+    // it clears the kicker's body cluster (prevents an opponent at the
+    // kicker's back from instantly "receiving" the struck ball).
+    if (this.ballFree > 0) {
       this.owner = null;
       return;
     }

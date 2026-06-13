@@ -68,6 +68,16 @@ game state yet (no Stores/queries for gameplay).
   expires. The KeyD standing-tackle is SUPPRESSED while `incoming` so it
   buffers a shot instead of lunging at our own pass. bufferTimer/kickPending
   reset on kickoff.
+- JUST-KICKED GRACE (`ballFree`, set 0.12s in afterKick): a struck ball used
+  to be "canceled" the same frame — afterKick sets owner=null but updateBall
+  runs AFTER resolvePossession, so the ball is still at the kicker's feet when
+  resolvePossession hands it to the nearest player within CONTROL_DIST
+  (~29px), excluding only the locked kicker. An opponent leaning on the
+  kicker's back is in range → instantly "receives" the kick. Fix: while
+  ballFree>0, resolvePossession keeps owner=null and returns, so the ball
+  physically clears the body cluster (~100-150px) before anyone can claim it.
+  A defender genuinely down the lane can still intercept once it expires.
+  ballFree decremented in the timers block; reset on kickoff.
 - Shot assist (`shootAssisted`): shot always goes toward the CPU goal.
   The VERTICAL arrow held at the moment of pressing D picks the ZONE of
   the frame (Up = top half, desired spot = top corner; Down = bottom
