@@ -1342,6 +1342,35 @@ export class PitchKickGame {
   // ---- possession / ball ---------------------------------------------------
 
   /**
+   * Realism gate shared by every steal path: a tackle only connects when the
+   * defender can actually reach the ball — i.e. he's on the BALL side of the
+   * carrier (not shielded out behind him) AND roughly facing the ball. A
+   * defender at the carrier's back, facing the other way, can't win it (he'd
+   * have to foul). The carrier dribbles the ball ahead of his facing, so we
+   * compare the defender's position to where the ball actually is.
+   */
+  private canTackle(tackler: PlayerEntity, carrier: PlayerEntity): boolean {
+    // Shielding: is the defender on the same side as the ball, relative to
+    // the carrier's body? If the carrier is between the defender and the
+    // ball, the ball is screened and can't be taken cleanly.
+    const ballSideX = this.ball.x - carrier.x;
+    const ballSideY = this.ball.y - carrier.y;
+    const tackSideX = tackler.x - carrier.x;
+    const tackSideY = tackler.y - carrier.y;
+    const sideDot = ballSideX * tackSideX + ballSideY * tackSideY;
+    if (sideDot < 0) return false; // behind the carrier → shielded out
+
+    // Engagement: the defender must be facing toward the ball (within ~80°),
+    // not turned the other way.
+    const toBallX = this.ball.x - tackler.x;
+    const toBallY = this.ball.y - tackler.y;
+    const tb = len(toBallX, toBallY);
+    const faceDot =
+      (tackler.facing.x * toBallX + tackler.facing.y * toBallY) / tb;
+    return faceDot > 0.15;
+  }
+
+  /**
    * Poke the ball off an opposing carrier if it's within reach. The ball is
    * knocked to the tackler's far side (away from the carrier), and normal
    * possession resolution then awards it — triggering the tackle-won
@@ -1353,6 +1382,7 @@ export class PitchKickGame {
       return false;
     if (this.stealProtect > 0 || this.dispossessed === tackler) return false;
     if (dist(tackler, this.ball) > reach) return false;
+    if (!this.canTackle(tackler, carrier)) return false;
 
     const dx = tackler.x - carrier.x;
     const dy = tackler.y - carrier.y;
@@ -1384,7 +1414,10 @@ export class PitchKickGame {
     for (const q of opps) {
       if (q.isGK || q === this.dispossessed) continue;
       const d = dist(q, o);
-      if (d < o.r + q.r + 9 && d < bestD) {
+      // Only count a body-contact challenge that is actually goal/ball-side
+      // and engaged — a defender shielded out at the carrier's back can lean
+      // on him forever without ever winning it.
+      if (d < o.r + q.r + 9 && d < bestD && this.canTackle(q, o)) {
         bestD = d;
         challenger = q;
       }

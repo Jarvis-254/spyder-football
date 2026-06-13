@@ -199,11 +199,17 @@ game state yet (no Stores/queries for gameplay).
   - All timers reset on kickoff.
 - DEFENDING CONTROLS (FIFA-style, added after user noted tackles felt
   passive-only):
+  - `canTackle(tackler, carrier)`: REALISM GATE shared by every steal path.
+    Requires (a) defender on the BALL side of the carrier — sideDot =
+    (ball-carrier)·(tackler-carrier) >= 0, so a defender shielded out behind
+    the carrier can't win it; and (b) defender facing the ball — faceDot of
+    (tackler.facing · dirToBall) > 0.15 (~within 80°). Added after user
+    reported steals from behind / facing away.
   - `pokeTackle(tackler, reach)`: shared steal primitive — if an opposing
     non-GK carrier exists, stealProtect elapsed, tackler not `dispossessed`,
-    and ball within reach, the ball is placed 6px past the tackler on the
-    far side from the carrier (resolvePossession then awards it via the
-    normal tackle-won path: 0.9s protect, 1.2s dispossess lockout).
+    ball within reach, AND canTackle passes, the ball is placed 6px past the
+    tackler on the far side from the carrier (resolvePossession then awards
+    it via the normal tackle-won path: 0.9s protect, 1.2s dispossess lockout).
   - D with NO ball = standing tackle: `tackleTimer=0.22s` lunge at
     TACKLE_LUNGE_SPEED=310 toward ball+vel*0.1 (`tackleDir`), poking with
     reach CONTROL_DIST+18 each frame; `tackleCooldown=0.8s` commit (whiff =
