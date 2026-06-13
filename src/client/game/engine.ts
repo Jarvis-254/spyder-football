@@ -59,7 +59,9 @@ const goalBottom = FIELD_H / 2 + GOAL_HEIGHT / 2;
 // A player's ground footprint ≈ 0.5 m radius; a regulation ball is 0.22 m
 // across (0.11 m radius) — genuinely small next to a footballer.
 const PLAYER_R = Math.round(M(0.52)); // ≈ 11
-const BALL_R = M(0.13); // ≈ 2.7 (slightly generous vs 0.11 m for visibility)
+// A true-scale ball (0.11 m radius ≈ 2.7 px) is invisible next to a 1.85 m
+// player, so — like every football game — we exaggerate it for playability.
+const BALL_R = M(0.42); // ≈ 9 px: clearly readable, still smaller than a foot
 // The upright sprite is drawn 44 internal units tall; scale it so a footballer
 // stands ~1.85 m in true world pixels (keeps player:ball:goal proportions).
 const PLAYER_SCALE = M(1.85) / 44;
