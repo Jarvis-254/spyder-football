@@ -56,6 +56,18 @@ game state yet (no Stores/queries for gameplay).
   and a "POWER" label, only while chargeLevel()!=null. (Replaced the old
   tiny above-the-player gauge — FIFA shows power bottom-centre, not on the
   player.) justReleased array cleared each frame like justPressed.
+- INPUT BUFFERING (FIFA first-time kicks): a shot/pass pressed WHILE the ball
+  is still travelling to your player used to be DROPPED (charge only started
+  `if (!chargeKey && owns)` and cancelled the instant `!owns`). Now: when the
+  ball is loose from our own kick (`incoming = !owns && owner===null &&
+  lastKicker.team==='home'`), a kick key starts a buffered charge with
+  `bufferTimer=KICK_BUFFER` (0.5s). While in transit it keeps charging (or, if
+  released early, sets `kickPending`); the moment possession is gained (owns
+  becomes true) it fires via doHomeKick — a first-time shot/pass. Buffer is
+  dropped if an opponent intercepts (owner.team==='away') or the window
+  expires. The KeyD standing-tackle is SUPPRESSED while `incoming` so it
+  buffers a shot instead of lunging at our own pass. bufferTimer/kickPending
+  reset on kickoff.
 - Shot assist (`shootAssisted`): shot always goes toward the CPU goal.
   The VERTICAL arrow held at the moment of pressing D picks the ZONE of
   the frame (Up = top half, desired spot = top corner; Down = bottom

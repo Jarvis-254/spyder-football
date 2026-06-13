@@ -121,6 +121,10 @@ const BALL_DECAY = 1.5;
 /** Seconds of holding a kick key for a full power gauge (FIFA-style:
  *  press charges, release kicks; a tap = minimum power). */
 const CHARGE_FULL = 0.8;
+// FIFA-style input buffering: a shot/pass pressed while the ball is still
+// travelling to your player is remembered for this long and fired the instant
+// you receive it (a "first-time" kick), instead of being dropped.
+const KICK_BUFFER = 0.5;
 
 /** How quickly velocity approaches the desired velocity (per second). */
 const ACCEL = 8;
@@ -257,6 +261,11 @@ export class PitchKickGame {
   /** Kick key currently charging (FIFA: press charges, release kicks). */
   private chargeKey: string | null = null;
   private chargeTime = 0;
+  /** Buffered first-time kick: charge started before the ball arrived.
+   *  `bufferTimer` counts down the window; `kickPending` = key already
+   *  released, so fire the moment possession is gained. */
+  private bufferTimer = 0;
+  private kickPending = false;
 
   private ball = { x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: BALL_R };
   private homePlayers: PlayerEntity[] = [];
@@ -402,6 +411,8 @@ export class PitchKickGame {
     this.markTimer = 0;
     this.chargeKey = null;
     this.chargeTime = 0;
+    this.bufferTimer = 0;
+    this.kickPending = false;
     this.tackleTimer = 0;
     this.tackleCooldown = 0;
     this.jostle = 0;
@@ -678,12 +689,18 @@ export class PitchKickGame {
     const owns = this.owner === p;
     const carrier =
       this.owner && this.owner.team === 'away' ? this.owner : null;
+    // The ball is loose and travelling from our own kick (a pass/shot in
+    // flight) — i.e. it's "incoming" to our team. In this state a kick key
+    // is buffered as a first-time shot/pass, NOT a tackle.
+    const incoming =
+      !owns && this.owner === null && this.lastKicker?.team === 'home';
 
     // D without the ball = standing tackle (FIFA: a committed lunge at
     // the ball — winning it cleanly if it's in reach, leaving you beaten
-    // for a moment if you whiff).
+    // for a moment if you whiff). Suppressed while our own pass is incoming.
     if (
       !owns &&
+      !incoming &&
       this.tackleCooldown <= 0 &&
       this.justPressed.includes('KeyD')
     ) {
@@ -751,29 +768,53 @@ export class PitchKickGame {
       this.steer(p, tvx, tvy, dt);
     }
 
-    // FIFA-style kick charging: pressing a kick key starts the power
-    // gauge; releasing it executes the kick with the charged power.
-    if (!this.chargeKey && owns) {
+    // FIFA-style kick charging + input buffering. Pressing a kick key starts
+    // the power gauge; releasing executes the kick. Crucially you may press it
+    // WHILE the ball is still travelling to you (`incoming`) — the input is
+    // buffered and fires the instant you receive the ball (a first-time
+    // shot/pass), instead of being dropped.
+    if (!this.chargeKey && (owns || incoming)) {
       for (const code of this.justPressed) {
         if (KICK_KEYS.has(code)) {
           this.chargeKey = code;
           this.chargeTime = 0;
+          this.kickPending = false;
+          this.bufferTimer = owns ? 0 : KICK_BUFFER;
           break;
         }
       }
     }
 
     if (this.chargeKey) {
-      if (!owns) {
-        // Lost the ball mid-charge — cancel.
+      const released = this.justReleased.includes(this.chargeKey);
+      if (owns) {
+        // We have the ball: fire on release, or immediately if a buffered
+        // first-time kick was already released during the transition.
+        if (this.kickPending || released) {
+          const t = clamp(this.chargeTime / CHARGE_FULL, 0, 1);
+          const code = this.chargeKey;
+          this.chargeKey = null;
+          this.kickPending = false;
+          this.doHomeKick(code, t);
+        } else {
+          this.chargeTime = Math.min(this.chargeTime + dt, CHARGE_FULL);
+        }
+      } else if (this.owner && this.owner.team === 'away') {
+        // An opponent intercepted before we received it — drop the buffer.
         this.chargeKey = null;
-      } else if (this.justReleased.includes(this.chargeKey)) {
-        const t = clamp(this.chargeTime / CHARGE_FULL, 0, 1);
-        const code = this.chargeKey;
-        this.chargeKey = null;
-        this.doHomeKick(code, t);
+        this.kickPending = false;
       } else {
-        this.chargeTime = Math.min(this.chargeTime + dt, CHARGE_FULL);
+        // Ball still in transit: keep buffering within the window. Charge
+        // while held; once released, mark pending so it fires on first touch.
+        this.bufferTimer -= dt;
+        if (this.bufferTimer <= 0) {
+          this.chargeKey = null;
+          this.kickPending = false;
+        } else if (released) {
+          this.kickPending = true;
+        } else if (!this.kickPending) {
+          this.chargeTime = Math.min(this.chargeTime + dt, CHARGE_FULL);
+        }
       }
     }
   }
