@@ -107,7 +107,14 @@ game state yet (no Stores/queries for gameplay).
   made the true-scale ball look wrong — user noticed). Hair/sideburn/neck
   all scale off HR. Markers ▼/▽ at q.y - 50*gs.
   `shade(hex,f)` global helper lightens/darkens #rrggbb by a factor.
-- LEGS are TWO-BONE IK (`drawLeg(footX,footY,lift,hipX,far)`): SEG=9.6
+- BODY ANATOMY ANCHORS (true ~7.5-heads proportion, audited): hipY=-H*0.47
+  (raised from 0.42 so legs aren't stubby), shoulderY=-H*0.82 (was 0.78),
+  headY=-H*0.92 (was 0.9). Torso narrowed to ±5.5 shoulders / ±4.4 hem (was
+  6.5/5.2) ≈0.46m shoulders; side seam ±2.9→2.4 (was 3.4/2.8). Shorts
+  roundRect(-5,...,10,8) (was -6,12). Arms lineWidth 2.5 ≈0.10m (was 3),
+  anchors dir*4.8/6/4.4, hand r1.4 (was 5.5/7/5, r1.6). Limbs were ~15-20%
+  too broad before this pass.
+- LEGS are TWO-BONE IK (`drawLeg(footX,footY,lift,hipX,far)`): SEG=10.8
   thigh≈shin, knee solved at half hip→foot distance + perpendicular rigid
   offset (hgt=sqrt(SEG²-a²)) bent FORWARD (perp x-sign matched to facing),
   reach-clamped. Draws thigh (hip→knee skin), shin (knee→calf skin,

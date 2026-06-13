@@ -2212,10 +2212,14 @@ export class PitchKickGame {
     const lean = moving ? clamp(p.vx / SPRINT_SPEED, -1, 1) * 0.13 : 0;
     ctx.rotate(lean);
 
-    const H = 44; // body height at scale 1
-    const hipY = -H * 0.42;
-    const shoulderY = -H * 0.78;
-    const headY = -H * 0.9;
+    // Anatomy anchors in REAL human proportion (figure ≈ 7.5 heads tall).
+    // Crotch sits near mid-height (legs ≈ 0.47H ≈ 0.87m), shoulders at 0.82H
+    // (≈1.52m), head centre at 0.92H. Was hip 0.42 / shoulder 0.78 — that
+    // made the legs ~12% short and the torso long.
+    const H = 44; // body height at scale 1 (≈1.85m via PLAYER_SCALE)
+    const hipY = -H * 0.47;
+    const shoulderY = -H * 0.82;
+    const headY = -H * 0.92;
     const bob = moving ? -Math.abs(Math.sin(p.animPhase)) * 1.6 : 0;
 
     // Leg stride vector on screen: mostly horizontal when running across,
@@ -2243,7 +2247,9 @@ export class PitchKickGame {
     // bends forward like a real leg. Equal segment lengths; the knee is
     // placed off the hip→foot line by the amount needed to keep both bones
     // rigid, so a lifted/planted foot flexes the knee naturally.
-    const SEG = 9.6; // thigh ≈ shin length
+    // Thigh ≈ shin; total leg reach ≈ 21.6u (0.9m) so the foot reaches the
+    // ground from the raised hip (0.47H ≈ 20.7u) with a slight standing bend.
+    const SEG = 10.8;
     const drawLeg = (
       footX: number,
       footY: number,
@@ -2345,7 +2351,7 @@ export class PitchKickGame {
     shortsGrad.addColorStop(1, '#dfe4ea');
     ctx.fillStyle = shortsGrad;
     ctx.beginPath();
-    ctx.roundRect(-6, hipY + bob - 5, 12, 8, 3);
+    ctx.roundRect(-5, hipY + bob - 5, 10, 8, 3);
     ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 0.8;
@@ -2355,21 +2361,21 @@ export class PitchKickGame {
     const armSwing = kicking ? 6 : -swing * 5;
     const drawArm = (dir: number, swingAmt: number) => {
       ctx.strokeStyle = kit.sleeve;
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5; // ≈0.10m — a real arm, not a tube
       ctx.lineCap = 'round';
       ctx.beginPath();
-      ctx.moveTo(dir * 5.5, shoulderY + bob + 2);
+      ctx.moveTo(dir * 4.8, shoulderY + bob + 2);
       ctx.quadraticCurveTo(
-        dir * 7 + swingAmt * 0.4,
+        dir * 6 + swingAmt * 0.4,
         shoulderY + bob + 9,
-        dir * 5 + swingAmt,
+        dir * 4.4 + swingAmt,
         hipY + bob + 1,
       );
       ctx.stroke();
       // Hand.
       ctx.fillStyle = p.skin;
       ctx.beginPath();
-      ctx.arc(dir * 5 + swingAmt, hipY + bob + 1.5, 1.6, 0, Math.PI * 2);
+      ctx.arc(dir * 4.4 + swingAmt, hipY + bob + 1.5, 1.4, 0, Math.PI * 2);
       ctx.fill();
     };
     drawArm(-side, -armSwing * side);
@@ -2382,10 +2388,10 @@ export class PitchKickGame {
     torsoGrad.addColorStop(1, shade(kit.shirt, 0.86));
     ctx.fillStyle = torsoGrad;
     ctx.beginPath();
-    ctx.moveTo(-6.5, shoulderY + bob + 1);
-    ctx.quadraticCurveTo(0, shoulderY + bob - 2.5, 6.5, shoulderY + bob + 1);
-    ctx.lineTo(5.2, hipY + bob - 3);
-    ctx.quadraticCurveTo(0, hipY + bob - 1, -5.2, hipY + bob - 3);
+    ctx.moveTo(-5.5, shoulderY + bob + 1);
+    ctx.quadraticCurveTo(0, shoulderY + bob - 2.5, 5.5, shoulderY + bob + 1);
+    ctx.lineTo(4.4, hipY + bob - 3);
+    ctx.quadraticCurveTo(0, hipY + bob - 1, -4.4, hipY + bob - 3);
     ctx.closePath();
     ctx.fill();
     ctx.strokeStyle = kit.outline;
@@ -2395,8 +2401,8 @@ export class PitchKickGame {
     ctx.strokeStyle = kit.sleeve;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(side * 3.4, shoulderY + bob + 0.5);
-    ctx.lineTo(side * 2.8, hipY + bob - 3);
+    ctx.moveTo(side * 2.9, shoulderY + bob + 0.5);
+    ctx.lineTo(side * 2.4, hipY + bob - 3);
     ctx.stroke();
     // Collar.
     ctx.strokeStyle = shade(kit.shirt, 0.7);
