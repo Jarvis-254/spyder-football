@@ -4,11 +4,19 @@
 // (perspective trapezoid pitch, upright animated player sprites scaled by
 // depth) — 16-bit FIFA / ISS style.
 
-export const FIELD_W = 2200;
-export const FIELD_H = 950;
+// ---- Real-world scale -----------------------------------------------------
+// Everything on the pitch is derived from a single pixels-per-metre scale so
+// the field, goals, markings, ball and players keep true FIFA proportions.
+// A regulation pitch is 105 m (goal-to-goal) × 68 m (touchline-to-touchline).
+export const FIELD_W = 2200; // 105 m  → PX_PER_M ≈ 20.95
+export const PX_PER_M = FIELD_W / 105;
+export const FIELD_H = Math.round(68 * PX_PER_M); // 68 m ≈ 1425 (true 105:68)
 export const MARGIN = 56;
 export const CANVAS_W = 1162;
 export const CANVAS_H = 700;
+
+/** Metres → field pixels. */
+const M = (m: number) => m * PX_PER_M;
 
 // ---- TV broadcast projection ----------------------------------------------
 // The simulation stays flat 2D (x = goal-to-goal, y = depth between the
@@ -43,13 +51,18 @@ function proj(x: number, y: number): { x: number; y: number; s: number } {
   };
 }
 
-const GOAL_HEIGHT = 240;
-const GOAL_DEPTH = 38;
+const GOAL_HEIGHT = Math.round(M(7.32)); // goal mouth width = 7.32 m ≈ 153
+const GOAL_DEPTH = Math.round(M(2.0)); // net depth ≈ 2 m ≈ 42
 const goalTop = FIELD_H / 2 - GOAL_HEIGHT / 2;
 const goalBottom = FIELD_H / 2 + GOAL_HEIGHT / 2;
 
-const PLAYER_R = 14;
-const BALL_R = 8;
+// A player's ground footprint ≈ 0.5 m radius; a regulation ball is 0.22 m
+// across (0.11 m radius) — genuinely small next to a footballer.
+const PLAYER_R = Math.round(M(0.52)); // ≈ 11
+const BALL_R = M(0.13); // ≈ 2.7 (slightly generous vs 0.11 m for visibility)
+// The upright sprite is drawn 44 internal units tall; scale it so a footballer
+// stands ~1.85 m in true world pixels (keeps player:ball:goal proportions).
+const PLAYER_SCALE = M(1.85) / 44;
 
 // Tuned down from the first prototype — calmer, more readable pace.
 const WALK_SPEED = 165;
@@ -66,7 +79,7 @@ const PRESS_SPEED = 200;
 const JOCKEY_SPEED = 180;
 /** Burst speed of the standing-tackle lunge (D without the ball). */
 const TACKLE_LUNGE_SPEED = 310;
-const CONTROL_DIST = PLAYER_R + BALL_R + 11;
+const CONTROL_DIST = PLAYER_R + BALL_R + 16; // ball "at feet" reach ≈ 1.4 m
 /** Ball rolling friction (exponential decay per second). A kick at power v
  *  rolls v/BALL_DECAY px total — pass powers MUST account for this. */
 const BALL_DECAY = 1.5;
@@ -1828,16 +1841,17 @@ export class PitchKickGame {
     ], false);
     ctx.stroke();
 
-    // Centre circle (projected → ellipse-ish, sampled).
-    this.strokeArc(ctx, FIELD_W / 2, FIELD_H / 2, 130, 0, Math.PI * 2);
+    // Centre circle: radius 9.15 m (projected → ellipse-ish, sampled).
+    const circleR = M(9.15);
+    this.strokeArc(ctx, FIELD_W / 2, FIELD_H / 2, circleR, 0, Math.PI * 2);
     this.spot(ctx, FIELD_W / 2, FIELD_H / 2);
 
-    // Penalty boxes + six-yard boxes.
-    const boxH = 560;
-    const boxW = 300;
-    const sixH = 300;
-    const sixW = 110;
-    const pkX = 200; // penalty-spot depth from the goal line
+    // Penalty area: 40.32 m × 16.5 m. Goal area (six-yard): 18.32 m × 5.5 m.
+    const boxH = M(40.32); // penalty-area width (along the goal line)
+    const boxW = M(16.5); // penalty-area depth (into the pitch)
+    const sixH = M(18.32); // goal-area width
+    const sixW = M(5.5); // goal-area depth
+    const pkX = M(11); // penalty spot: 11 m from the goal line
     const by = (FIELD_H - boxH) / 2;
     const sy = (FIELD_H - sixH) / 2;
     for (const left of [true, false]) {
@@ -1857,21 +1871,23 @@ export class PitchKickGame {
         { x: gx, y: sy + sixH },
       ], false);
       ctx.stroke();
-      // Penalty spot + the "D" arc poking out of the box.
+      // Penalty spot + the "D" arc (radius 9.15 m from the spot) poking out
+      // of the box past its edge.
       const px = gx + dir * pkX;
       this.spot(ctx, px, FIELD_H / 2);
-      const cos = (boxW - pkX) / 130; // where the arc crosses the box edge
+      const cos = (boxW - pkX) / circleR; // where the arc crosses the box edge
       const a = Math.acos(clamp(cos, -1, 1));
-      if (left) this.strokeArc(ctx, px, FIELD_H / 2, 130, -a, a);
-      else this.strokeArc(ctx, px, FIELD_H / 2, 130, Math.PI - a, Math.PI + a);
+      if (left) this.strokeArc(ctx, px, FIELD_H / 2, circleR, -a, a);
+      else this.strokeArc(ctx, px, FIELD_H / 2, circleR, Math.PI - a, Math.PI + a);
     }
 
-    // Corner arcs.
+    // Corner arcs: 1 m radius.
+    const cornerR = M(1);
     for (const cx of [0, FIELD_W]) {
       for (const cy of [0, FIELD_H]) {
         const a0 = cx === 0 ? 0 : Math.PI;
         const sign = cy === 0 ? 1 : -1;
-        this.strokeArc(ctx, cx, cy, 26, a0, a0 + sign * (Math.PI / 2));
+        this.strokeArc(ctx, cx, cy, cornerR, a0, a0 + sign * (Math.PI / 2));
       }
     }
     ctx.lineJoin = 'miter';
@@ -1911,7 +1927,7 @@ export class PitchKickGame {
     const q = proj(x, y);
     ctx.fillStyle = 'rgba(255,255,255,0.88)';
     ctx.beginPath();
-    ctx.arc(q.x, q.y, 2.6 * q.s, 0, Math.PI * 2);
+    ctx.arc(q.x, q.y, M(0.12) * q.s, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -1972,7 +1988,7 @@ export class PitchKickGame {
     const near = proj(gx, goalBottom);
     const backFar = proj(backX, goalTop + 10);
     const backNear = proj(backX, goalBottom - 10);
-    const postH = (s: number) => 58 * s;
+    const postH = (s: number) => M(2.44) * s; // crossbar height = 2.44 m
     return { far, near, backFar, backNear, postH };
   }
 
@@ -2098,23 +2114,24 @@ export class PitchKickGame {
 
     // Ground decorations (not scaled by ctx transform — drawn in screen px).
     // Possession ring / selection ring under the feet.
+    const gs = s * PLAYER_SCALE;
     if (this.owner === p) {
       ctx.strokeStyle = 'rgba(198,255,46,0.85)';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(q.x, q.y + 2 * s, 15 * s, 6 * s, 0, 0, Math.PI * 2);
+      ctx.ellipse(q.x, q.y + 2 * gs, 15 * gs, 6 * gs, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
 
     // Shadow.
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     ctx.beginPath();
-    ctx.ellipse(q.x + 2 * s, q.y + 1.5 * s, 11 * s, 4 * s, 0, 0, Math.PI * 2);
+    ctx.ellipse(q.x + 2 * gs, q.y + 1.5 * gs, 11 * gs, 4 * gs, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.save();
     ctx.translate(q.x, q.y);
-    ctx.scale(s, s);
+    ctx.scale(gs, gs);
     // Lean into the run direction for a sense of momentum.
     const lean = moving ? clamp(p.vx / SPRINT_SPEED, -1, 1) * 0.13 : 0;
     ctx.rotate(lean);
@@ -2364,8 +2381,8 @@ export class PitchKickGame {
 
     ctx.restore();
 
-    // Markers above the head (screen space).
-    const topY = q.y - 50 * s;
+    // Markers above the head (screen space; tracks the scaled body height).
+    const topY = q.y - 50 * gs;
     if (p === this.controlled) {
       ctx.fillStyle = '#c6ff2e';
       ctx.beginPath();

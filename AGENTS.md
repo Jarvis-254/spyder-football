@@ -7,7 +7,15 @@ game state yet (no Stores/queries for gameplay).
 ### Game architecture
 - `src/client/game/engine.ts` — `PitchKickGame` class: the whole game loop,
   physics, input handling (window keydown/keyup), PC AI, and canvas rendering.
-  Field is 2200x950 with a 56px margin (`CANVAS_W=1162`/`CANVAS_H=700`
+  REAL-SCALE PITCH: everything derives from `PX_PER_M = FIELD_W/105` (a
+  regulation pitch is 105m × 68m). FIELD_W=2200 (105m, anchor), FIELD_H=
+  Math.round(68*PX_PER_M)≈1425 (true 105:68 aspect — was 950, too narrow).
+  Helper `M(metres)` → field px. NOTE: formations & proj() are all FRACTIONS
+  of FIELD_W/FIELD_H, so the camera framing + players' on-screen positions/
+  scales are UNCHANGED by the FIELD_H grow; only relative marking/player/ball
+  sizes became correct. Caveat: speeds are still px/s, so vertical (depth)
+  coverage now reads ~⅓ slower on screen than before — retune speeds if
+  defending feels sluggish. 56px margin (`CANVAS_W=1162`/`CANVAS_H=700`
   exported). The camera only shows part of the pitch (FIFA tele cam style):
   engine `camX` follows ball + vel*0.25 lookahead with exponential smoothing
   (k = 1-exp(-2.6dt)), clamped to CAM_MIN=580..CAM_MAX=FIELD_W-580. Render
@@ -200,8 +208,14 @@ game state yet (no Stores/queries for gameplay).
   forced to 0.55 if run points back). Through arrival speed 240 (was 300,
   rolled away from the runner). Short/long passes still lead vel*0.2.
   (Receiver selection: see "Pass receiver selection (v2)" above.)
-- Pitch markings rescaled: 18 mow stripes, centre circle r=130, penalty
-  box 300x560, six-yard 110x300, GOAL_HEIGHT=240.
+- Pitch markings are now REAL DIMENSIONS via `M()`: centre circle & "D" arc
+  r=M(9.15), penalty box M(16.5)deep×M(40.32)wide, six-yard M(5.5)×M(18.32),
+  penalty spot M(11) from goal, corner arc M(1), spot dots M(0.12).
+  GOAL_HEIGHT=M(7.32)≈153 (mouth width), GOAL_DEPTH=M(2.0)≈42, goal posts
+  M(2.44) tall. PLAYER_R=M(0.52)≈11, BALL_R=M(0.13)≈2.7 (genuinely small),
+  CONTROL_DIST=PLAYER_R+BALL_R+16. Sprite: `PLAYER_SCALE=M(1.85)/44` applied
+  in drawHumanoid (ground decos use `gs=s*PLAYER_SCALE`; body `ctx.scale(gs,
+  gs)`; head markers at q.y-50*gs) → footballer stands ~1.85m.
 - Possession: nearest player (either team) within CONTROL_DIST grabs ball;
   kicker is excluded for 0.45s after kicking (`lastKicker`/`kickerLock`) so
   passes aren't instantly re-grabbed; lock clears when anyone receives.
