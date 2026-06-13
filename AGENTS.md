@@ -102,7 +102,10 @@ game state yet (no Stores/queries for gameplay).
   SHIRT_NUMBERS[i], drawn only when toward<0.1 = seeing the back), neck
   segment, radial head-shading gradient, gradient shorts. Head shows
   back-of-head hair when facing away (facing.y<-0.3), mirror by facing.x
-  sign. Body height 44 at scale 1. Markers ▼/▽ at q.y - 50*s.
+  sign. Body height 44 at scale 1. HEAD radius `HR=2.9` (REAL proportion:
+  ≈7.5 heads tall → ~0.24m head ≈ ball size; was 4.4 cartoon big-head which
+  made the true-scale ball look wrong — user noticed). Hair/sideburn/neck
+  all scale off HR. Markers ▼/▽ at q.y - 50*gs.
   `shade(hex,f)` global helper lightens/darkens #rrggbb by a factor.
 - LEGS are TWO-BONE IK (`drawLeg(footX,footY,lift,hipX,far)`): SEG=9.6
   thigh≈shin, knee solved at half hip→foot distance + perpendicular rigid

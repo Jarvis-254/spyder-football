@@ -2416,42 +2416,48 @@ export class PitchKickGame {
     // Near arm (in front of torso).
     drawArm(side, armSwing * side);
 
+    // Real human proportions: a figure is ≈7.5 heads tall, so for a 44-unit
+    // (1.85 m) body the head radius is ≈2.9 units (a ~0.24 m head — almost
+    // exactly the size of a 0.22 m ball, as in real life). Was 4.4 (cartoon
+    // big-head) which made the true-scale ball look wrong beside it.
+    const HR = 2.9;
+
     // Neck.
     ctx.strokeStyle = shade(p.skin, 0.92);
     ctx.lineWidth = 2.4;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(0, shoulderY + bob - 1);
-    ctx.lineTo(fx * 1.2, headY + bob + 3);
+    ctx.lineTo(fx * 1.2, headY + bob + HR * 0.7);
     ctx.stroke();
 
     // Head + hair, orientation hints from facing.
-    const headX = fx * 1.6;
+    const headX = fx * 1.4;
     const headGrad = ctx.createRadialGradient(
-      headX - 1.4, headY + bob - 1.4, 0.8,
-      headX, headY + bob, 4.4,
+      headX - HR * 0.32, headY + bob - HR * 0.32, HR * 0.18,
+      headX, headY + bob, HR,
     );
     headGrad.addColorStop(0, shade(p.skin, 1.12));
     headGrad.addColorStop(1, shade(p.skin, 0.9));
     ctx.fillStyle = headGrad;
     ctx.beginPath();
-    ctx.arc(headX, headY + bob, 4.4, 0, Math.PI * 2);
+    ctx.arc(headX, headY + bob, HR, 0, Math.PI * 2);
     ctx.fill();
     // Hair: cap on top; covers more of the face when running away from
     // camera (toward < 0 = facing up/away → we see the back of the head).
     ctx.fillStyle = p.hair;
     const hairBias = toward < -0.3 ? 1 : 0.45; // away → full back of head
     ctx.beginPath();
-    ctx.arc(headX, headY + bob, 4.4, Math.PI + 0.2, -0.2);
+    ctx.arc(headX, headY + bob, HR, Math.PI + 0.2, -0.2);
     ctx.fill();
     if (toward < -0.3) {
       ctx.beginPath();
-      ctx.arc(headX, headY + bob + 1, 3.9 * hairBias, 0, Math.PI * 2);
+      ctx.arc(headX, headY + bob + HR * 0.22, HR * 0.88 * hairBias, 0, Math.PI * 2);
       ctx.fill();
     } else {
       // Profile/front: small sideburn toward the back of the head.
       ctx.beginPath();
-      ctx.arc(headX - side * 2.2, headY + bob + 0.5, 2, 0, Math.PI * 2);
+      ctx.arc(headX - side * HR * 0.5, headY + bob + 0.5, HR * 0.45, 0, Math.PI * 2);
       ctx.fill();
     }
 
