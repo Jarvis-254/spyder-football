@@ -2189,15 +2189,7 @@ export class PitchKickGame {
     const toward = clamp(fy, -1, 1);
 
     // Ground decorations (not scaled by ctx transform — drawn in screen px).
-    // Possession ring / selection ring under the feet.
     const gs = s * PLAYER_SCALE;
-    if (this.owner === p) {
-      ctx.strokeStyle = 'rgba(198,255,46,0.85)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.ellipse(q.x, q.y + 2 * gs, 15 * gs, 6 * gs, 0, 0, Math.PI * 2);
-      ctx.stroke();
-    }
 
     // Shadow.
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
