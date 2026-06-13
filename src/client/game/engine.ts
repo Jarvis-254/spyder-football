@@ -25,28 +25,47 @@ const M = (m: number) => m * PX_PER_M;
 // and lower, and everything scales with depth.
 const S_FAR = 0.66; // scale at the far touchline (camera pulled closer)
 const S_NEAR = 1.24; // scale at the near touchline
-const PITCH_TOP = 110; // screen y of the far touchline
-const PITCH_DRAW_H = 560; // screen height of the pitch
+const PITCH_TOP = 110; // base screen y of the far touchline (pre-zoom)
+const PITCH_DRAW_H = 560; // base screen height of the pitch (pre-zoom)
 const AVG_S = (S_FAR + S_NEAR) / 2;
 
-// The camera pans horizontally to follow the ball (FIFA tele cam) — only a
-// section of the pitch is visible at a time. `viewCamX` is the field x the
-// camera is centred on; the engine updates it every frame before rendering.
+// Broadcast zoom: a real TV / FIFA tele camera does NOT show the whole pitch —
+// it crops in close and pans to follow the ball both horizontally AND
+// vertically (depth). ZOOM>1 enlarges everything and crops the field; the
+// vertical camera (viewCamY) then keeps the action framed.
+const ZOOM = 1.5;
+/** Screen y where the camera-centre depth (viewCamY) is drawn (≈ the ball). */
+const VIEW_ANCHOR_Y = 400;
+
+// The camera pans to follow the ball (FIFA tele cam) — only a section of the
+// pitch is visible at a time. `viewCamX`/`viewCamY` are the field coords the
+// camera is centred on; the engine updates them every frame before rendering.
 let viewCamX = FIELD_W / 2;
+let viewCamY = FIELD_H / 2;
 /** Camera clamp so the goal + some behind-goal apron stays on screen.
  *  Pulled in with the closer zoom so the goalmouth stays framed. */
-const CAM_MIN = 580;
-const CAM_MAX = FIELD_W - 580;
+const CAM_MIN = 360;
+const CAM_MAX = FIELD_W - 360;
+/** Vertical camera clamp: keep the visible window roughly within the pitch. */
+const CAM_Y_MIN = FIELD_H * 0.30;
+const CAM_Y_MAX = FIELD_H * 0.70;
+
+/** Base (pre-zoom) vertical screen position of a field depth y. */
+function baseDepthY(y: number): number {
+  const t = clamp(y / FIELD_H, -0.2, 1.2);
+  const v = (S_FAR * t + 0.5 * (S_NEAR - S_FAR) * t * t) / AVG_S;
+  return PITCH_TOP + PITCH_DRAW_H * v;
+}
 
 /** Project field coordinates to screen coordinates. */
 function proj(x: number, y: number): { x: number; y: number; s: number } {
   const t = clamp(y / FIELD_H, -0.2, 1.2);
-  const s = S_FAR + (S_NEAR - S_FAR) * t;
-  // Integral of the scale function → vertical spacing matches foreshortening.
-  const v = (S_FAR * t + 0.5 * (S_NEAR - S_FAR) * t * t) / AVG_S;
+  const s = (S_FAR + (S_NEAR - S_FAR) * t) * ZOOM;
+  // Vertical: zoom in around the camera-centre depth and pan to follow it.
+  const yScreen = VIEW_ANCHOR_Y + (baseDepthY(y) - baseDepthY(viewCamY)) * ZOOM;
   return {
     x: CANVAS_W / 2 + (x - viewCamX) * s,
-    y: PITCH_TOP + PITCH_DRAW_H * v,
+    y: yScreen,
     s,
   };
 }
@@ -267,6 +286,8 @@ export class PitchKickGame {
   private freeze = 0;
   /** TV camera x (field coordinates), follows the ball with smoothing. */
   private camX = FIELD_W / 2;
+  /** TV camera depth (field coordinates), follows the ball vertically. */
+  private camY = FIELD_H / 2;
 
   private listener: StateListener;
 
@@ -366,6 +387,7 @@ export class PitchKickGame {
     if (kickingTeam === 'home') this.controlled = this.homePlayers[KICKOFF_FWD];
 
     this.camX = FIELD_W / 2;
+    this.camY = FIELD_H / 2;
 
     this.owner = null;
     this.lastKicker = null;
@@ -541,6 +563,12 @@ export class PitchKickGame {
     const target = clamp(this.ball.x + this.ball.vx * 0.25, CAM_MIN, CAM_MAX);
     const k = 1 - Math.exp(-2.6 * dt);
     this.camX += (target - this.camX) * k;
+
+    // Vertical follow is gentler and clamped — a TV cam drifts in depth only
+    // a little, keeping the action framed without swinging up and down.
+    const targetY = clamp(this.ball.y + this.ball.vy * 0.18, CAM_Y_MIN, CAM_Y_MAX);
+    const ky = 1 - Math.exp(-1.8 * dt);
+    this.camY += (targetY - this.camY) * ky;
   }
 
   /**
@@ -1697,6 +1725,7 @@ export class PitchKickGame {
   private render() {
     const ctx = this.ctx;
     viewCamX = this.camX; // sync the projection with the engine camera
+    viewCamY = this.camY;
     ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
     // Stadium backdrop: dark stands above the far touchline.
@@ -1797,14 +1826,19 @@ export class PitchKickGame {
 
   /** Crowd dots + hoarding behind the far touchline, with camera parallax. */
   private drawCrowd(ctx: CanvasRenderingContext2D) {
-    const top = 18;
-    const bottom = PITCH_TOP - 14;
+    // The far touchline moves on screen as the camera pans in depth; anchor the
+    // stands + hoarding just above it so they track the pitch.
+    const farY = proj(0, 0).y;
+    const hoardH = 18;
+    const bottom = farY - hoardH; // base of the crowd band (top of hoarding)
+    const top = Math.max(-40, bottom - 150); // tall stands above
     ctx.fillStyle = '#101a28';
     ctx.fillRect(0, top, CANVAS_W, bottom - top);
     // Stands pan with the camera at the far-line rate (parallax).
-    const offset = -(this.camX - FIELD_W / 2) * S_FAR;
-    const span = (CAM_MAX - CAM_MIN) * S_FAR + CANVAS_W + 100;
-    const x0 = -(CAM_MAX - FIELD_W / 2) * S_FAR - 50;
+    const farScale = S_FAR * ZOOM;
+    const offset = -(this.camX - FIELD_W / 2) * farScale;
+    const span = (CAM_MAX - CAM_MIN) * farScale + CANVAS_W + 100;
+    const x0 = -(CAM_MAX - FIELD_W / 2) * farScale - 50;
     // Deterministic pseudo-random dots (no per-frame flicker).
     for (let i = 0; i < 760; i++) {
       const n = Math.sin(i * 127.1) * 43758.5453;
@@ -1820,14 +1854,14 @@ export class PitchKickGame {
     }
     // Hoarding strip between crowd and pitch.
     ctx.fillStyle = '#0a0f16';
-    ctx.fillRect(0, bottom, CANVAS_W, PITCH_TOP - bottom);
+    ctx.fillRect(0, bottom, CANVAS_W, farY - bottom);
     ctx.fillStyle = 'rgba(198,255,46,0.55)';
     ctx.font = '700 11px Oswald, sans-serif';
     ctx.textAlign = 'center';
     for (let x = x0; x < x0 + span; x += 220) {
       const sx = x + offset;
       if (sx < -110 || sx > CANVAS_W + 110) continue;
-      ctx.fillText('P I T C H K I C K', sx, bottom + (PITCH_TOP - bottom) / 2 + 4);
+      ctx.fillText('P I T C H K I C K', sx, bottom + hoardH / 2 + 4);
     }
   }
 

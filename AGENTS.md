@@ -18,14 +18,23 @@ game state yet (no Stores/queries for gameplay).
   defending feels sluggish. 56px margin (`CANVAS_W=1162`/`CANVAS_H=700`
   exported). The camera only shows part of the pitch (FIFA tele cam style):
   engine `camX` follows ball + vel*0.25 lookahead with exponential smoothing
-  (k = 1-exp(-2.6dt)), clamped to CAM_MIN=580..CAM_MAX=FIELD_W-580. Render
+  (k = 1-exp(-2.6dt)), clamped to CAM_MIN=360..CAM_MAX=FIELD_W-360. Render
   syncs module-level `viewCamX` from it; `proj()` offsets x by viewCamX.
-  CLOSER ZOOM: S_FAR=0.66, S_NEAR=1.24, PITCH_TOP=110, PITCH_DRAW_H=560
-  (was 0.56/1.0/116/510). CAM_MIN/MAX widened to 580 to keep goalmouths
-  framed at the closer zoom.
-  Full pitch depth (y) is always visible — pan is horizontal only.
-  Players projected off-screen (±60px) are culled; crowd dots + hoarding
-  span the whole pannable range and parallax with the camera.
+  CLOSER ZOOM: S_FAR=0.66, S_NEAR=1.24, PITCH_TOP=110, PITCH_DRAW_H=560.
+  BROADCAST ZOOM/CROP (user: "camera too far, don't show full field"):
+  global `ZOOM=1.5` multiplies scale `s` AND the vertical offset, so the
+  field is enlarged and CROPPED (touchlines run off top/bottom) like a TV
+  tele cam. proj y = VIEW_ANCHOR_Y(400) + (baseDepthY(y)-baseDepthY(viewCamY))
+  *ZOOM, where baseDepthY is the pre-zoom integral foreshortening. Camera now
+  ALSO follows depth: engine `camY` follows ball.y + vy*0.18 (gentler,
+  k=1-exp(-1.8dt)) clamped CAM_Y_MIN=0.30·FIELD_H..CAM_Y_MAX=0.70·FIELD_H;
+  render syncs `viewCamY`. CAM_MIN/MAX pulled to 360 so the goalmouth stays
+  framed at the tighter horizontal view. The ball sits ≈VIEW_ANCHOR_Y on
+  screen. To zoom more/less change ZOOM (and re-check goal framing/anchor).
+  Crowd+hoarding now anchor to the DYNAMIC far-touchline screen y
+  (`proj(0,0).y`) since the far line moves with the depth pan; parallax uses
+  farScale=S_FAR*ZOOM.
+  Players projected off-screen (±60px horizontally) are culled.
   Calls a `HudState` listener each frame to push score/time/possession to React.
 - `src/client/pages/HomePage.tsx` — hosts the canvas, scoreboard HUD, start
   overlay, GOAL flash, and the controls legend. Instantiates the engine in a
