@@ -175,7 +175,7 @@ export default function HomePage() {
               vs{' '}
               <span className="font-semibold text-white">{TEAM_INFO.away.name}</span> —
               full 11v11, the TV camera follows the ball. Your active{' '}
-              {TEAM_INFO.home.name} player is named in the bottom-left tag. A hollow ▽
+              {TEAM_INFO.home.name} player wears the solid ▼ marker. A hollow ▽
               hints who <span className="text-volt-400 font-semibold">Q</span> will
               switch you to — selection never changes on its own.
             </p>

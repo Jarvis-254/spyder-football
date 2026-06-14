@@ -60,9 +60,9 @@ game state yet (no Stores/queries for gameplay).
   in HomePage, fed by HUD fields `homePlayer`/`awayPlayer` ({num,name}).
   `homePlayer` = `this.controlled`; `awayPlayer` = `this.awayActive` (away
   carrier, else outfield CPU nearest ball, computed in `updateAwayActive`).
-  Above the head: the PC (human-controlled) player gets NO marker — only the
-  away active player (red chevron) and the Q switch-hint (hollow chevron) are
-  drawn. The controlled player is identified solely by the bottom-left name tag.
+  Above the head: the human-controlled player wears a solid green chevron; the
+  Q switch-hint wears a hollow chevron. The CPU (away active) player gets NO
+  above-head marker.
 - Shot/pass power gauge: rendered in React as a thin (h-1) fill line directly
   UNDER the home player's bottom-left `PlayerNameTag`, fed by HUD `charge`
   (0..1 or null) from `chargeLevel()`. Gradient green->yellow->red, width

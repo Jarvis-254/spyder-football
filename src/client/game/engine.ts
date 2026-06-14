@@ -2665,12 +2665,12 @@ export class PitchKickGame {
     // Selection chevron above the head (screen space; tracks scaled height).
     // The player NAME is NOT drawn here — it shows as a broadcast lower-third
     // in the bottom corners (pushed to the HUD; rendered by React).
-    // NOTE: the human-controlled (PC) player gets NO above-head marker — the
-    // bottom-left name tag identifies them — only the Q switch-hint and the
-    // away active player are marked on the pitch.
+    // NOTE: the CPU (away active) player gets NO above-head marker — only the
+    // human-controlled player (green chevron) and the Q switch-hint (hollow
+    // chevron) are marked on the pitch.
     const topY = q.y - 50 * gs;
-    if (p === this.awayActive) {
-      ctx.fillStyle = '#ff4d4d';
+    if (p === this.controlled) {
+      ctx.fillStyle = '#c6ff2e';
       ctx.beginPath();
       ctx.moveTo(q.x, topY);
       ctx.lineTo(q.x - 6.5, topY - 10);
