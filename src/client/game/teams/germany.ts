@@ -1,7 +1,7 @@
 import { buildSquad, type TeamData } from './types';
 import { F_4231 } from './formations';
 
-// Germany — 4-2-3-1 (Euro 2024 XI).
+// Germany — 4-2-3-1 (post-Euro 2024; Kroos/Neuer/Müller/Gündoğan retired from NT).
 export const germany: TeamData = {
   name: 'Germany',
   abbr: 'GER',
@@ -12,16 +12,16 @@ export const germany: TeamData = {
   gkKit: { shirt: '#27e0a6', sleeve: '#12a878', outline: '#0a5c42' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [
-    { num: 1, name: 'NEUER' },
+    { num: 1, name: 'BAUMANN' },
     { num: 6, name: 'KIMMICH' },
     { num: 4, name: 'TAH' },
     { num: 2, name: 'RÜDIGER' },
     { num: 18, name: 'MITTELSTÄDT' },
-    { num: 8, name: 'KROOS' },
     { num: 23, name: 'ANDRICH' },
-    { num: 21, name: 'GÜNDOĞAN' },
-    { num: 17, name: 'WIRTZ' },
+    { num: 17, name: 'GROSS' },
+    { num: 10, name: 'WIRTZ' },
+    { num: 19, name: 'SANÉ' },
     { num: 7, name: 'HAVERTZ' },
-    { num: 10, name: 'MUSIALA' },
+    { num: 14, name: 'MUSIALA' },
   ]),
 };

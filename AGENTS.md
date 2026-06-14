@@ -60,8 +60,13 @@ game state yet (no Stores/queries for gameplay).
   (pairs a roster with a shared formation template); `formations.ts` holds
   position templates `F_433` / `F_4231` / `F_442` / `F_352` / `F_343` (fractions,
   attacking RIGHT). `index.ts` exports the `TEAMS` array (the selectable roster).
-  CURRENTLY 48 WC2026 nations (UEFA, CONMEBOL, CONCACAF, AFC, CAF, OFC) — one file
-  each, grouped by confederation in `index.ts`.
+  The 48 official WC2026 qualified nations (verified against Wikipedia's qualified
+  list June 2026) — one file each, grouped by confederation in `index.ts`:
+  UEFA 16, CAF 10, AFC 9, CONMEBOL 6, CONCACAF 6, OFC 1. NOTE: Italy, Denmark,
+  Ukraine, Poland, Serbia, Costa Rica, Jamaica, Nigeria, Cameroon did NOT qualify
+  (do not re-add). Squads are best-effort current XIs — names may drift from live
+  call-ups; the team LIST is authoritative but per-player rosters are not fully
+  verified.
   The ENGINE is team-agnostic: `new PitchKickGame(canvas, listener, homeTeam,
   awayTeam)` builds the match from the two `TeamData` (away mirrored on x),
   stores `this.homeTeam`/`this.awayTeam`, and uses them for names/numbers/kits
