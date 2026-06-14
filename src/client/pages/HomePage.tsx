@@ -35,6 +35,8 @@ export default function HomePage() {
     clock: 0,
     message: '',
     possession: 'none',
+    homePlayer: null,
+    awayPlayer: null,
   });
 
   useEffect(() => {
@@ -118,6 +120,25 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Broadcast lower-thirds: the active player's name+number for each
+            side, in the bottom corners (home left / CPU right), like FIFA. */}
+        {started && hud.homePlayer && (
+          <PlayerNameTag
+            side="left"
+            accent="bg-home-500"
+            num={hud.homePlayer.num}
+            name={hud.homePlayer.name}
+          />
+        )}
+        {started && hud.awayPlayer && (
+          <PlayerNameTag
+            side="right"
+            accent="bg-away-500"
+            num={hud.awayPlayer.num}
+            name={hud.awayPlayer.name}
+          />
+        )}
+
         {/* Centre message (GOAL etc.) */}
         {started && hud.message && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -180,6 +201,38 @@ export default function HomePage() {
         just stay touch-tight — sustained contact wins the ball. Press{' '}
         <span className="text-volt-400">Q</span> to jump to the hinted ▽ player.
       </p>
+    </div>
+  );
+}
+
+function PlayerNameTag({
+  side,
+  accent,
+  num,
+  name,
+}: {
+  side: 'left' | 'right';
+  accent: string;
+  num: number;
+  name: string;
+}) {
+  return (
+    <div
+      className={`absolute bottom-3 ${
+        side === 'left' ? 'left-3' : 'right-3'
+      } flex items-stretch h-9 rounded-md overflow-hidden shadow-lg shadow-black/40 bg-night-950/95 font-heading select-none animate-fade-in`}
+    >
+      {/* Team colour bar on the outer edge of the tag. */}
+      {side === 'left' && <span className={`w-1.5 self-stretch ${accent}`} />}
+      <span
+        className={`flex items-center px-2.5 text-white text-sm tabular-nums font-display ${accent} bg-opacity-100`}
+      >
+        {num}
+      </span>
+      <span className="flex items-center px-3 text-white uppercase tracking-wider text-sm font-bold">
+        {name}
+      </span>
+      {side === 'right' && <span className={`w-1.5 self-stretch ${accent}`} />}
     </div>
   );
 }

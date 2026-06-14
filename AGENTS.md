@@ -45,14 +45,15 @@ game state yet (no Stores/queries for gameplay).
   possession indicator (FIFA's score bug doesn't show one; on-pitch selected
   marker conveys who has the ball).
 - Player names: each `PlayerEntity` has a `name` (surname) from `HOME_NAMES` /
-  `AWAY_NAMES` (indexed by formation slot). FIFA-style selected-player
-  indicator: a single connected name tag (`drawNameTag`, `num + NAME`) — a
-  coloured pill with a downward pointer at its base aiming at the head (map-pin
-  style, NOT a name stacked above a separate chevron) — on BOTH teams' active
-  players: green for `this.controlled` (home), red for `this.awayActive` (CPU).
-  The Q-switch hint stays a plain hollow chevron (no name). `awayActive` = away carrier, else
-  outfield CPU nearest the ball (computed each frame in `updateAwayActive`).
-  This is separate from the charge/power gauge (`chargeLevel` + chevron meter).
+  `AWAY_NAMES` (indexed by formation slot). Names are shown as FIFA broadcast
+  lower-thirds in the BOTTOM CORNERS (NOT above the player): home active player
+  bottom-left (blue), CPU active player bottom-right (red) — `PlayerNameTag` in
+  HomePage, fed by HUD fields `homePlayer`/`awayPlayer` ({num,name}).
+  `homePlayer` = `this.controlled`; `awayPlayer` = `this.awayActive` (away
+  carrier, else outfield CPU nearest ball, computed in `updateAwayActive`).
+  Above the head only the selection chevron is drawn (green=controlled,
+  red=awayActive, hollow=switchHint) — no name there. Separate from the
+  charge/power gauge (`chargeLevel` + chevron meter).
 - Match clock: counts UP like a real soccer clock (0:00 -> 90:00), accelerated.
   Engine tracks real `elapsed` secs; `MATCH_REAL_SECS=180` real seconds maps to
   `MATCH_DISPLAY_SECS=5400` (90'). HUD field is `clock` (in-game secs);

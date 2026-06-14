@@ -172,6 +172,9 @@ export interface HudState {
   clock: number;
   message: string;
   possession: Team | 'none';
+  /** Active player per side, for the bottom-corner broadcast lower-thirds. */
+  homePlayer: { num: number; name: string } | null;
+  awayPlayer: { num: number; name: string } | null;
 }
 
 type StateListener = (s: HudState) => void;
@@ -463,6 +466,12 @@ export class PitchKickGame {
       ),
       message: this.message,
       possession: this.owner ? this.owner.team : 'none',
+      homePlayer: this.controlled
+        ? { num: this.controlled.num, name: this.controlled.name }
+        : null,
+      awayPlayer: this.awayActive
+        ? { num: this.awayActive.num, name: this.awayActive.name }
+        : null,
     });
   }
 
@@ -2674,16 +2683,27 @@ export class PitchKickGame {
 
     ctx.restore();
 
-    // Markers above the head (screen space; tracks the scaled body height).
+    // Selection chevron above the head (screen space; tracks scaled height).
+    // The player NAME is NOT drawn here — it shows as a broadcast lower-third
+    // in the bottom corners (pushed to the HUD; rendered by React).
     const topY = q.y - 50 * gs;
     if (p === this.controlled) {
-      // Home selected player: name tag whose pointer aims at the head.
-      this.drawNameTag(ctx, q.x, topY, p, '#c6ff2e', '#11210a');
+      ctx.fillStyle = '#c6ff2e';
+      ctx.beginPath();
+      ctx.moveTo(q.x, topY);
+      ctx.lineTo(q.x - 6.5, topY - 10);
+      ctx.lineTo(q.x + 6.5, topY - 10);
+      ctx.closePath();
+      ctx.fill();
     } else if (p === this.awayActive) {
-      // CPU active player: red name tag.
-      this.drawNameTag(ctx, q.x, topY, p, '#ff4d4d', '#2a0808');
+      ctx.fillStyle = '#ff4d4d';
+      ctx.beginPath();
+      ctx.moveTo(q.x, topY);
+      ctx.lineTo(q.x - 6.5, topY - 10);
+      ctx.lineTo(q.x + 6.5, topY - 10);
+      ctx.closePath();
+      ctx.fill();
     } else if (p === this.switchHint) {
-      // Q-switch hint stays a simple hollow chevron (no name).
       ctx.strokeStyle = 'rgba(198,255,46,0.8)';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -2693,55 +2713,5 @@ export class PitchKickGame {
       ctx.closePath();
       ctx.stroke();
     }
-  }
-
-  /** FIFA-style selected-player tag: a single connected marker — a coloured
-   *  pill with the player's number + surname and a downward pointer at its
-   *  base that aims at the player's head (like a map pin). `ay` is the head-top
-   *  y in screen space; the pointer tip sits there and the pill grows upward. */
-  private drawNameTag(
-    ctx: CanvasRenderingContext2D,
-    cx: number,
-    ay: number,
-    p: PlayerEntity,
-    bg: string,
-    fg: string,
-  ) {
-    const label = `${p.num} ${p.name}`;
-    ctx.save();
-    ctx.font = '700 11px ui-sans-serif, system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const padX = 7;
-    const h = 16;
-    const tail = 6; // height of the downward pointer
-    const w = ctx.measureText(label).width + padX * 2;
-    const x = cx - w / 2;
-    const yb = ay - tail; // pill bottom edge (pointer tip is at ay)
-    const y = yb - h; // pill top edge
-    const r = h / 2;
-    // Pill + integrated downward pointer, as one path.
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, yb, r);
-    ctx.lineTo(x + w, yb - r); // right edge down to corner radius
-    ctx.arcTo(x + w, yb, x + w - r, yb, r);
-    ctx.lineTo(cx + tail, yb); // toward the pointer base (right side)
-    ctx.lineTo(cx, ay); // pointer tip at the head
-    ctx.lineTo(cx - tail, yb); // pointer base (left side)
-    ctx.arcTo(x, yb, x, yb - r, r);
-    ctx.lineTo(x, y + r);
-    ctx.arcTo(x, y, x + r, y, r);
-    ctx.closePath();
-    ctx.fillStyle = bg;
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetY = 1;
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = fg;
-    ctx.fillText(label, cx, y + h / 2 + 0.5);
-    ctx.restore();
   }
 }
