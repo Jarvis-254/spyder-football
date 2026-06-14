@@ -40,15 +40,24 @@ game state yet (no Stores/queries for gameplay).
   overlay, GOAL flash, and the controls legend. Instantiates the engine in a
   `useEffect` keyed on `started`/`gameKey`. The scoreboard is a compact
   FIFA-style overlay pill (`absolute top-3 left-3` inside the pitch container):
-  `[home bar][YOU][home]–[away][CPU][away bar][clock]`. Team colours sit on the
+  `[home bar][ESP][home]–[away][GER][away bar][clock]`. Team colours sit on the
   OUTER edges of the score block (home far-left, away right of CPU). No live
   possession indicator (FIFA's score bug doesn't show one; on-pitch selected
   marker conveys who has the ball).
-- Player names: each `PlayerEntity` has a `name` (surname) from `HOME_NAMES` /
-  `AWAY_NAMES` (indexed by formation slot). Names are shown as FIFA broadcast
-  lower-thirds in the BOTTOM CORNERS (NOT above the player): home active player
-  bottom-left (blue), CPU active player bottom-right (red) — `PlayerNameTag` in
-  HomePage, fed by HUD fields `homePlayer`/`awayPlayer` ({num,name}).
+- Real teams: SPAIN (home, 4-3-3) vs GERMANY (away, 4-2-3-1), Euro-2024 XIs.
+  `HOME_FORMATION`/`AWAY_FORMATION` hold each side's slot coords (index 0 GK,
+  1-4 DF, 5-8 MF, 9-10 FW; away mirrored on x). Real surnames + shirt numbers
+  in `HOME_NAMES`/`HOME_NUMBERS` and `AWAY_NAMES`/`AWAY_NUMBERS` (indexed by
+  slot). Kits: Spain red (`HOME_KIT`), Germany white (`AWAY_KIT`). Team identity
+  (name/abbr/UI colour/text colour) lives in the exported `TEAM_INFO` const —
+  single source of truth, imported by HomePage for scoreboard + name tags, and
+  used by the engine for GOAL / full-time messages. To change the matchup, edit
+  the FORMATION/NAMES/NUMBERS/KIT arrays + `TEAM_INFO`.
+- Player names: each `PlayerEntity` has a `name` (surname) and real `num`. Names
+  are shown as FIFA broadcast lower-thirds in the BOTTOM CORNERS (NOT above the
+  player): home active player bottom-left, CPU active player bottom-right
+  (each tag's accent + number text colour come from `TEAM_INFO`) — `PlayerNameTag`
+  in HomePage, fed by HUD fields `homePlayer`/`awayPlayer` ({num,name}).
   `homePlayer` = `this.controlled`; `awayPlayer` = `this.awayActive` (away
   carrier, else outfield CPU nearest ball, computed in `updateAwayActive`).
   Above the head only the selection chevron is drawn (green=controlled,

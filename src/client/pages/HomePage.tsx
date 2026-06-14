@@ -4,6 +4,7 @@ import {
   PitchKickGame,
   CANVAS_W,
   CANVAS_H,
+  TEAM_INFO,
   type HudState,
 } from '@/client/game/engine';
 
@@ -97,9 +98,12 @@ export default function HomePage() {
         {started && (
           <div className="absolute top-3 left-3 flex items-stretch h-9 rounded-md overflow-hidden shadow-lg shadow-black/40 font-heading select-none animate-fade-in text-sm">
             {/* home colour — far-left outer edge */}
-            <span className="w-1.5 self-stretch bg-home-500" />
+            <span
+              className="w-1.5 self-stretch"
+              style={{ backgroundColor: TEAM_INFO.home.color }}
+            />
             <span className="flex items-center pl-2 pr-1.5 bg-night-950/95 text-white uppercase tracking-wider text-xs font-bold">
-              YOU
+              {TEAM_INFO.home.abbr}
             </span>
             <span className="flex items-center px-2.5 bg-night-950/95 text-white text-base tabular-nums font-display">
               {hud.homeScore}
@@ -111,10 +115,13 @@ export default function HomePage() {
               {hud.awayScore}
             </span>
             <span className="flex items-center pl-1.5 pr-2 bg-night-950/95 text-white uppercase tracking-wider text-xs font-bold">
-              CPU
+              {TEAM_INFO.away.abbr}
             </span>
             {/* away colour — outer edge of the score block */}
-            <span className="w-1.5 self-stretch bg-away-500" />
+            <span
+              className="w-1.5 self-stretch"
+              style={{ backgroundColor: TEAM_INFO.away.color }}
+            />
             <span className="flex items-center px-2.5 bg-volt-500 text-night-950 text-sm tabular-nums font-bold tracking-tight">
               {fmtTime(hud.clock)}
             </span>
@@ -126,7 +133,8 @@ export default function HomePage() {
         {started && hud.homePlayer && (
           <PlayerNameTag
             side="left"
-            accent="bg-home-500"
+            color={TEAM_INFO.home.color}
+            textColor={TEAM_INFO.home.textColor}
             num={hud.homePlayer.num}
             name={hud.homePlayer.name}
             charge={hud.charge}
@@ -135,7 +143,8 @@ export default function HomePage() {
         {started && hud.awayPlayer && (
           <PlayerNameTag
             side="right"
-            accent="bg-away-500"
+            color={TEAM_INFO.away.color}
+            textColor={TEAM_INFO.away.textColor}
             num={hud.awayPlayer.num}
             name={hud.awayPlayer.name}
           />
@@ -160,12 +169,16 @@ export default function HomePage() {
               READY TO <span className="text-volt-500">KICK OFF?</span>
             </h1>
             <p className="font-body text-night-600 mb-8 text-center max-w-md">
-              Full 11v11 against the CPU — the TV camera follows the ball. You control
-              the{' '}
-              <span className="text-home-500 font-semibold">blue</span> player with the
-              solid <span className="text-volt-400 font-semibold">▼</span>. A hollow ▽
-              hints who <span className="text-volt-400 font-semibold">Q</span> will
-              switch you to — selection never changes on its own.
+              <span className="font-semibold" style={{ color: TEAM_INFO.home.color }}>
+                {TEAM_INFO.home.name}
+              </span>{' '}
+              vs{' '}
+              <span className="font-semibold text-white">{TEAM_INFO.away.name}</span> —
+              full 11v11, the TV camera follows the ball. You control the{' '}
+              {TEAM_INFO.home.name} player with the solid{' '}
+              <span className="text-volt-400 font-semibold">▼</span>. A hollow ▽ hints
+              who <span className="text-volt-400 font-semibold">Q</span> will switch you
+              to — selection never changes on its own.
             </p>
             <button
               onClick={handleStart}
@@ -209,13 +222,15 @@ export default function HomePage() {
 
 function PlayerNameTag({
   side,
-  accent,
+  color,
+  textColor,
   num,
   name,
   charge,
 }: {
   side: 'left' | 'right';
-  accent: string;
+  color: string;
+  textColor: string;
   num: number;
   name: string;
   charge?: number | null;
@@ -229,16 +244,27 @@ function PlayerNameTag({
     >
       <div className="flex items-stretch h-9">
         {/* Team colour bar on the outer edge of the tag. */}
-        {side === 'left' && <span className={`w-1.5 self-stretch ${accent}`} />}
+        {side === 'left' && (
+          <span
+            className="w-1.5 self-stretch"
+            style={{ backgroundColor: color }}
+          />
+        )}
         <span
-          className={`flex items-center px-2.5 text-white text-sm tabular-nums font-display ${accent} bg-opacity-100`}
+          className="flex items-center px-2.5 text-sm tabular-nums font-display"
+          style={{ backgroundColor: color, color: textColor }}
         >
           {num}
         </span>
         <span className="flex items-center px-3 text-white uppercase tracking-wider text-sm font-bold">
           {name}
         </span>
-        {side === 'right' && <span className={`w-1.5 self-stretch ${accent}`} />}
+        {side === 'right' && (
+          <span
+            className="w-1.5 self-stretch"
+            style={{ backgroundColor: color }}
+          />
+        )}
       </div>
       {/* Thin shot/pass power fill, right under the name label. The track is
           always reserved (so the tag doesn't jump); the fill only shows while
