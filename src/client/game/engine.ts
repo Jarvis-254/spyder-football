@@ -957,7 +957,16 @@ export class PitchKickGame {
     // (~2.2x the base). Harder shots rise more — a full blast lifts toward
     // the top corners, while a placed side-foot stays low and grounded.
     const loft = M(0.6) + charge * M(7);
-    this.kickBallToward({ x: goalX, y: bestY }, 620 + 720 * charge, kicker, loft);
+    // Shots scatter the most — a harder strike (more charge) is less precise,
+    // so a power blast can flash just wide while a placed side-foot is tighter.
+    const shotSpread = 0.05 + charge * 0.045;
+    this.kickBallToward(
+      { x: goalX, y: bestY },
+      620 + 720 * charge,
+      kicker,
+      loft,
+      shotSpread,
+    );
   }
 
   private passAssisted(
@@ -1033,7 +1042,8 @@ export class PitchKickGame {
       const T = clamp(0.62 + d / M(70) + charge * 0.25, 0.6, 1.5);
       const vz = 0.5 * GRAVITY * T;
       const hspeed = Math.min((d / T) * 1.12, 1500);
-      this.kickBallToward(aim, hspeed, kicker, vz);
+      // A raking long ball is harder to land on a sixpence than a short pass.
+      this.kickBallToward(aim, hspeed, kicker, vz, 0.045);
       this.controlled = target;
       return;
     }
@@ -1189,17 +1199,39 @@ export class PitchKickGame {
     power: number,
     kicker: PlayerEntity,
     loft = 0,
+    /** Angular error envelope in radians — how much this kick can stray from
+     *  the perfect aim. Short passes are tight; shots/long balls scatter more
+     *  (FIFA: not every strike is pixel-perfect). */
+    spread = 0.03,
   ) {
     const dx = aim.x - this.ball.x;
     const dy = aim.y - this.ball.y;
     const l = len(dx, dy);
-    this.ball.vx = (dx / l) * power;
-    this.ball.vy = (dy / l) * power;
+    const nx = dx / l;
+    const ny = dy / l;
+    // FIFA-like imperfection: deflect the aim by a small random angle and
+    // nudge the power, so no two kicks come out exactly the same. The noise is
+    // triangular (peaked at 0) — most kicks are near-perfect, the odd one
+    // sprays wide or runs heavy.
+    const ang = spread * this.kickNoise();
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    const rx = nx * ca - ny * sa;
+    const ry = nx * sa + ny * ca;
+    const pw = power * (1 + 0.05 * this.kickNoise());
+    this.ball.vx = rx * pw;
+    this.ball.vy = ry * pw;
     // `loft` is the upward launch velocity (px/s). Pop the ball just off the
     // turf so it leaves the ground cleanly on a lofted kick.
     this.ball.vz = loft;
     if (loft > 0) this.ball.z = Math.max(this.ball.z, 0.5);
     this.afterKick(kicker);
+  }
+
+  /** Triangular random in [-1, 1], peaked at 0: the difference of two uniforms.
+   *  Small deviations are common, large ones rare — natural kick scatter. */
+  private kickNoise(): number {
+    return Math.random() - Math.random();
   }
 
   private afterKick(kicker: PlayerEntity) {

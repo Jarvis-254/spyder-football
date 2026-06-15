@@ -359,8 +359,14 @@ game state yet (no Stores/queries for gameplay).
   updateBall integrates z + ground bounce; horizontal friction is ~12% of
   normal while AIRBORNE (lofted balls carry, grounded balls decay as before),
   and a bounce scrubs 14% of roll. dribble() forces z=vz=0; resetKickoff
-  zeroes them. `kickBallToward(aim,power,kicker,loft=0)` — loft is upward
-  vz launch. SHOTS: loft=M(0.6)+charge*M(7) (driven, rises slightly, stays
+  zeroes them. `kickBallToward(aim,power,kicker,loft=0,spread=0.03)` — loft is
+  upward vz launch; `spread` = angular error envelope (radians). Every kick gets
+  FIFA-like imperfection: aim deflected by `spread*kickNoise()` and power *
+  (1+0.05*kickNoise()), where `kickNoise()` = `random()-random()` (triangular,
+  peaked at 0 → most kicks near-perfect, rare big sprays). Short/ground passes
+  use the tight default 0.03; LONG ball 0.045; SHOTS the widest, 0.05+charge*
+  0.045 (a power blast is less accurate than a placed side-foot). SHOTS:
+  loft=M(0.6)+charge*M(7) (driven, rises slightly, stays
   under bar). LONG PASS (A) = BALLISTIC LOFT: solves hang time T=clamp(0.62+
   d/M(70)+charge*0.25,0.6,1.5), vz=0.5*GRAVITY*T, hspeed=d/T*1.12 → flies
   over defenders, drops on receiver. Short/through stay grounded. handleGoals
