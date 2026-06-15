@@ -61,19 +61,14 @@ import { drCongo } from './drcongo';
 // ── OFC (1) ──
 import { newZealand } from './newzealand';
 
-// All 48 nations qualified for the 2026 FIFA World Cup.
+// All 48 nations qualified for the 2026 FIFA World Cup, listed alphabetically
+// by name for the team-selection screen.
 export const TEAMS: TeamData[] = [
-  // CONMEBOL
   argentina, brazil, uruguay, colombia, ecuador, paraguay,
-  // UEFA
   france, spain, england, germany, portugal, netherlands, croatia, belgium,
   switzerland, austria, turkey, norway, sweden, scotland, czechia, bosnia,
-  // CONCACAF
   usa, mexico, canada, panama, curacao, haiti,
-  // AFC
   japan, southKorea, iran, australia, saudiArabia, qatar, uzbekistan, iraq, jordan,
-  // CAF
   morocco, senegal, egypt, ghana, algeria, ivoryCoast, tunisia, southAfrica, capeVerde, drCongo,
-  // OFC
   newZealand,
-];
+].sort((a, b) => a.name.localeCompare(b.name));
