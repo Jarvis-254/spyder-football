@@ -8,7 +8,7 @@ export const netherlands: TeamData = {
   formation: '4-3-3',
   color: '#f36c21',
   textColor: '#ffffff',
-  kit: { shirt: '#f36c21', sleeve: '#d4571a', outline: '#7a3210' },
+  kit: { shirt: '#f36c21', sleeve: '#d4571a', outline: '#7a3210', shorts: '#f1f2f4' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

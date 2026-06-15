@@ -8,7 +8,7 @@ export const drCongo: TeamData = {
   formation: '4-3-3',
   color: '#1f8fff',
   textColor: '#ffd200',
-  kit: { shirt: '#1f8fff', sleeve: '#1670cc', outline: '#0b3e72' },
+  kit: { shirt: '#1f8fff', sleeve: '#1670cc', outline: '#0b3e72', shorts: '#0b3e72' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

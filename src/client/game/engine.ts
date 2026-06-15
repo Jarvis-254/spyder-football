@@ -2481,12 +2481,13 @@ export class PitchKickGame {
     drawLeg(f2x, f2y, f2Lift, -side * 2.2, true);
     drawLeg(f1x, f1y, f1Lift, side * 2.2, false);
 
-    // Shorts.
+    // Shorts (team kit shorts colour).
+    const shortsCol = kit.shorts ?? '#ffffff';
     const shortsGrad = ctx.createLinearGradient(
       0, hipY + bob - 5, 0, hipY + bob + 3,
     );
-    shortsGrad.addColorStop(0, '#ffffff');
-    shortsGrad.addColorStop(1, '#dfe4ea');
+    shortsGrad.addColorStop(0, shade(shortsCol, 1.12));
+    shortsGrad.addColorStop(1, shade(shortsCol, 0.88));
     ctx.fillStyle = shortsGrad;
     ctx.beginPath();
     ctx.roundRect(-5, hipY + bob - 5, 10, 8, 3);

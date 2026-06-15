@@ -8,7 +8,7 @@ export const bosnia: TeamData = {
   formation: '4-2-3-1',
   color: '#1f57b6',
   textColor: '#ffd200',
-  kit: { shirt: '#1f57b6', sleeve: '#16438f', outline: '#0a234d' },
+  kit: { shirt: '#1f57b6', sleeve: '#16438f', outline: '#0a234d', shorts: '#f1f2f4' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

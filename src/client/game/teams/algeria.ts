@@ -8,7 +8,7 @@ export const algeria: TeamData = {
   formation: '4-3-3',
   color: '#0a7a3b',
   textColor: '#ffffff',
-  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af' },
+  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#f1f2f4' },
   gkKit: { shirt: '#0a7a3b', sleeve: '#075c2c', outline: '#033017' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

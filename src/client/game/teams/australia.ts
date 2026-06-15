@@ -8,7 +8,7 @@ export const australia: TeamData = {
   formation: '4-4-2',
   color: '#0b6b3a',
   textColor: '#ffd200',
-  kit: { shirt: '#f4c300', sleeve: '#d8aa00', outline: '#8a6c00' },
+  kit: { shirt: '#f4c300', sleeve: '#d8aa00', outline: '#8a6c00', shorts: '#0a7a3b' },
   gkKit: { shirt: '#0b6b3a', sleeve: '#075029', outline: '#032916' },
   kickoffFwd: 9,
   players: buildSquad(F_442, [

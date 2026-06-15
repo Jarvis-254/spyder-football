@@ -11,6 +11,8 @@ export interface Kit {
   shirt: string;
   sleeve: string;
   outline: string;
+  /** Shorts colour (real home-kit shorts). Falls back to `sleeve` if omitted. */
+  shorts?: string;
 }
 
 export interface SquadPlayer {

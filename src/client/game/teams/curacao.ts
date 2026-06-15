@@ -8,7 +8,7 @@ export const curacao: TeamData = {
   formation: '4-2-3-1',
   color: '#0a285f',
   textColor: '#ffd200',
-  kit: { shirt: '#0a285f', sleeve: '#071e47', outline: '#030f24' },
+  kit: { shirt: '#0a285f', sleeve: '#071e47', outline: '#030f24', shorts: '#0a285f' },
   gkKit: { shirt: '#16a34a', sleeve: '#107a37', outline: '#08461f' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

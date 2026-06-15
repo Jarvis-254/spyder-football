@@ -8,7 +8,7 @@ export const senegal: TeamData = {
   formation: '4-3-3',
   color: '#1f9d55',
   textColor: '#ffffff',
-  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af' },
+  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#0a7a3b' },
   gkKit: { shirt: '#1f9d55', sleeve: '#147a40', outline: '#0a4523' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

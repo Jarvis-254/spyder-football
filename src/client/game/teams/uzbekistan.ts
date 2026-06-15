@@ -8,7 +8,7 @@ export const uzbekistan: TeamData = {
   formation: '4-2-3-1',
   color: '#1f8fff',
   textColor: '#ffffff',
-  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af' },
+  kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#f1f2f4' },
   gkKit: { shirt: '#1f8fff', sleeve: '#1670cc', outline: '#0b3e72' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

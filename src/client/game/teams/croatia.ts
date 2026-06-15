@@ -8,7 +8,7 @@ export const croatia: TeamData = {
   formation: '4-3-3',
   color: '#d6132c',
   textColor: '#ffffff',
-  kit: { shirt: '#e7e7e7', sleeve: '#d6132c', outline: '#9c0f20' },
+  kit: { shirt: '#e7e7e7', sleeve: '#d6132c', outline: '#9c0f20', shorts: '#f1f2f4' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

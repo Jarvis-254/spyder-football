@@ -59,7 +59,11 @@ game state yet (no Stores/queries for gameplay).
 - TEAM DATA (per-country, small files): `src/client/game/teams/` — one file per
   nation exporting a `TeamData` (name, abbr, formation string, color/textColor
   for UI, outfield `kit` + `gkKit`, `kickoffFwd`, and 11 `players`
-  {num,name,pos}; index 0 = GK). `types.ts` defines the model + `buildSquad()`
+  {num,name,pos}; index 0 = GK). Each `Kit` has shirt/sleeve/outline + an optional
+  `shorts` (real home-kit shorts colour, e.g. Germany black, Argentina/Uruguay
+  black, England/Spain navy, Brazil/Colombia/Sweden blue, Portugal/Senegal/
+  Australia green; falls back to `sleeve`); `shorts` drives both the team-select
+  `KitJersey` SVG and the in-game player shorts. `types.ts` defines the model + `buildSquad()`
   (pairs a roster with a shared formation template); `formations.ts` holds
   position templates `F_433` / `F_4231` / `F_442` / `F_352` / `F_343` (fractions,
   attacking RIGHT). `index.ts` exports the `TEAMS` array (the selectable roster).

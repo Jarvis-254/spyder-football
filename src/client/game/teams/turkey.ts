@@ -8,7 +8,7 @@ export const turkey: TeamData = {
   formation: '4-2-3-1',
   color: '#e30a17',
   textColor: '#ffffff',
-  kit: { shirt: '#e30a17', sleeve: '#b30812', outline: '#5e040a' },
+  kit: { shirt: '#e30a17', sleeve: '#b30812', outline: '#5e040a', shorts: '#f1f2f4' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

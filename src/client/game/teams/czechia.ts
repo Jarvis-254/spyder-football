@@ -8,7 +8,7 @@ export const czechia: TeamData = {
   formation: '4-2-3-1',
   color: '#c8102e',
   textColor: '#ffffff',
-  kit: { shirt: '#c8102e', sleeve: '#a00b24', outline: '#5e0714' },
+  kit: { shirt: '#c8102e', sleeve: '#a00b24', outline: '#5e0714', shorts: '#f1f2f4' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

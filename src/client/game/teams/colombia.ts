@@ -8,7 +8,7 @@ export const colombia: TeamData = {
   formation: '4-2-3-1',
   color: '#fcd116',
   textColor: '#15171c',
-  kit: { shirt: '#fcd116', sleeve: '#d8b00e', outline: '#7a6300' },
+  kit: { shirt: '#fcd116', sleeve: '#d8b00e', outline: '#7a6300', shorts: '#1a3a8f' },
   gkKit: { shirt: '#2b7fff', sleeve: '#1f63cc', outline: '#0a2f6e' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

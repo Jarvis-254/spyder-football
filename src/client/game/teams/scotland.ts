@@ -8,7 +8,7 @@ export const scotland: TeamData = {
   formation: '3-5-2',
   color: '#0a285f',
   textColor: '#ffffff',
-  kit: { shirt: '#0a285f', sleeve: '#071e47', outline: '#030f24' },
+  kit: { shirt: '#0a285f', sleeve: '#071e47', outline: '#030f24', shorts: '#f1f2f4' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_352, [

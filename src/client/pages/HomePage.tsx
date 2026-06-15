@@ -372,8 +372,9 @@ function TeamCrest({
 function KitJersey({
   kit,
 }: {
-  kit: { shirt: string; sleeve: string; outline: string };
+  kit: { shirt: string; sleeve: string; outline: string; shorts?: string };
 }) {
+  const shorts = kit.shorts ?? kit.sleeve;
   return (
     <svg
       viewBox="0 0 200 236"
@@ -384,7 +385,7 @@ function KitJersey({
         {/* shorts (drawn first so the shirt hem overlaps the waistband) */}
         <path
           d="M66 150 L134 150 L140 214 L108 214 L100 178 L92 214 L60 214 Z"
-          fill={kit.sleeve}
+          fill={shorts}
         />
         {/* shirt body silhouette */}
         <path

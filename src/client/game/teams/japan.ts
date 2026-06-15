@@ -8,7 +8,7 @@ export const japan: TeamData = {
   formation: '4-2-3-1',
   color: '#0b1f6b',
   textColor: '#ffffff',
-  kit: { shirt: '#0b1f6b', sleeve: '#081852', outline: '#040d2e' },
+  kit: { shirt: '#0b1f6b', sleeve: '#081852', outline: '#040d2e', shorts: '#081852' },
   gkKit: { shirt: '#2bd47a', sleeve: '#17a95c', outline: '#0a5f33' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

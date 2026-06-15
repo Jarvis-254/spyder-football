@@ -8,7 +8,7 @@ export const argentina: TeamData = {
   formation: '4-3-3',
   color: '#75aadb',
   textColor: '#0a2b4a',
-  kit: { shirt: '#75aadb', sleeve: '#ffffff', outline: '#2f6aa8' },
+  kit: { shirt: '#75aadb', sleeve: '#ffffff', outline: '#2f6aa8', shorts: '#16181d' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

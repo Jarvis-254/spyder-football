@@ -9,7 +9,7 @@ export const germany: TeamData = {
   formation: '4-2-3-1',
   color: '#f4f4f4',
   textColor: '#15171c',
-  kit: { shirt: '#f4f4f4', sleeve: '#d2d2d2', outline: '#2b2b2b' },
+  kit: { shirt: '#f4f4f4', sleeve: '#d2d2d2', outline: '#2b2b2b', shorts: '#16181d' },
   gkKit: { shirt: '#27e0a6', sleeve: '#12a878', outline: '#0a5c42' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

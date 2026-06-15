@@ -8,7 +8,7 @@ export const southAfrica: TeamData = {
   formation: '4-3-3',
   color: '#0a7a3b',
   textColor: '#ffd200',
-  kit: { shirt: '#0a7a3b', sleeve: '#075c2c', outline: '#033017' },
+  kit: { shirt: '#0a7a3b', sleeve: '#075c2c', outline: '#033017', shorts: '#f1f2f4' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

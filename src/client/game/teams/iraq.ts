@@ -8,7 +8,7 @@ export const iraq: TeamData = {
   formation: '4-3-3',
   color: '#1f9d55',
   textColor: '#ffffff',
-  kit: { shirt: '#1f9d55', sleeve: '#147a40', outline: '#0a4523' },
+  kit: { shirt: '#1f9d55', sleeve: '#147a40', outline: '#0a4523', shorts: '#f1f2f4' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

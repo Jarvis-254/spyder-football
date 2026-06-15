@@ -8,7 +8,7 @@ export const ecuador: TeamData = {
   formation: '4-3-3',
   color: '#ffd100',
   textColor: '#15171c',
-  kit: { shirt: '#ffd100', sleeve: '#1a4fa0', outline: '#0c2452' },
+  kit: { shirt: '#ffd100', sleeve: '#1a4fa0', outline: '#0c2452', shorts: '#1a4fa0' },
   gkKit: { shirt: '#2bd47a', sleeve: '#17a95c', outline: '#0a5f33' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

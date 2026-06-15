@@ -8,7 +8,7 @@ export const paraguay: TeamData = {
   formation: '4-4-2',
   color: '#d52b1e',
   textColor: '#ffffff',
-  kit: { shirt: '#d52b1e', sleeve: '#1a4fa0', outline: '#0c2452' },
+  kit: { shirt: '#d52b1e', sleeve: '#1a4fa0', outline: '#0c2452', shorts: '#1a4fa0' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_442, [
