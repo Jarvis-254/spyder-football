@@ -7,6 +7,7 @@ import {
   type HudState,
 } from '@/client/game/engine';
 import { TEAMS, type TeamData } from '@/client/game/teams';
+import { findCurrentOrNextMatch, type Match } from '@/client/game/teams/schedule';
 
 const CONTROLS: { keys: string; label: string }[] = [
   { keys: '← ↑ ↓ →', label: 'Move' },
@@ -38,9 +39,19 @@ export default function HomePage() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [gameKey, setGameKey] = useState(0);
 
+  // Default the team picker to the next/live World Cup 2026 fixture so the
+  // matchup feels topical the moment you open the game.
+  const initialMatch = useRef<Match | null>(findCurrentOrNextMatch()).current;
+  const initialHomeIdx =
+    initialMatch ? Math.max(0, TEAMS.indexOf(initialMatch.home)) : 0;
+  const initialAwayIdx =
+    initialMatch && TEAMS.indexOf(initialMatch.away) !== initialHomeIdx
+      ? TEAMS.indexOf(initialMatch.away)
+      : initialHomeIdx === 1 ? 0 : 1;
+
   // Team selection (indices into TEAMS). Left = you (home), right = CPU (away).
-  const [homeIdx, setHomeIdx] = useState(0);
-  const [awayIdx, setAwayIdx] = useState(1);
+  const [homeIdx, setHomeIdx] = useState(initialHomeIdx);
+  const [awayIdx, setAwayIdx] = useState(initialAwayIdx);
   const [activeSide, setActiveSide] = useState<'home' | 'away'>('home');
 
   const home: TeamData = TEAMS[homeIdx];
@@ -253,12 +264,13 @@ export default function HomePage() {
             <h2 className="font-display text-4xl sm:text-5xl text-white tracking-wide mb-1">
               SELECT <span className="text-volt-500">TEAMS</span>
             </h2>
-            <p className="font-body text-night-600 text-sm mb-6 text-center">
+            <p className="font-body text-night-600 text-sm mb-4 text-center">
               <span className="text-volt-400 font-semibold">← →</span> to choose
               ·{' '}
               <span className="text-volt-400 font-semibold">Enter / S / D</span>{' '}
               to confirm
             </p>
+            {initialMatch && <FixtureBanner match={initialMatch} />}
             <div className="flex items-stretch gap-4 sm:gap-8">
               <TeamCrest
                 team={home}
@@ -305,6 +317,41 @@ export default function HomePage() {
         just stay touch-tight — sustained contact wins the ball. Press{' '}
         <span className="text-volt-400">Q</span> to jump to the hinted ▽ player.
       </p>
+    </div>
+  );
+}
+
+function FixtureBanner({ match }: { match: Match }) {
+  const now = Date.now();
+  const t = match.kickoffUTC.getTime();
+  const live = now >= t && now < t + 110 * 60 * 1000;
+  const time = match.kickoffUTC.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+  return (
+    <div className="mb-4 flex items-center gap-3 px-4 py-2 rounded-xl bg-night-900/80 border border-night-800 animate-fade-in">
+      <span
+        className={`font-heading text-[10px] uppercase tracking-[0.25em] px-2 py-0.5 rounded ${
+          live
+            ? 'bg-rose-500/90 text-white animate-pulse'
+            : 'bg-volt-500 text-night-950'
+        }`}
+      >
+        {live ? 'Live now' : 'Next up'}
+      </span>
+      <span className="font-heading uppercase tracking-wider text-xs text-night-600">
+        WC&nbsp;2026 · Group&nbsp;{match.group}
+      </span>
+      <span className="hidden sm:inline font-body text-xs text-night-600">·</span>
+      <span className="hidden sm:inline font-body text-xs text-night-500 truncate max-w-[18ch]">
+        {match.venue}
+      </span>
+      <span className="font-body text-xs text-night-600">·</span>
+      <span className="font-body text-xs text-white tabular-nums">{time}</span>
     </div>
   );
 }
