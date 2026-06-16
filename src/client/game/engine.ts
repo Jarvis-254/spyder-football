@@ -1290,49 +1290,73 @@ export class PitchKickGame {
     }
   }
 
-  /** Blow up an offside: indirect free kick to the defending team at the spot
-   *  where the offside attacker interfered with play. */
+  /** Blow up an offside: stop play, reposition BOTH teams for the restart, and
+   *  award an indirect free kick to the defending team at the offside spot
+   *  (FIFA: the whistle goes, everyone resets, the other team gets the ball). */
   private callOffside(offsider: PlayerEntity) {
     const atkTeam = offsider.team;
     const defTeam: Team = atkTeam === 'home' ? 'away' : 'home';
     const defs = defTeam === 'home' ? this.homePlayers : this.awayPlayers;
+    const defAtk = defTeam === 'home' ? 1 : -1;
 
     // Free kick spot: where the offside player was when the ball reached him.
-    const spotX = clamp(offsider.x, 30, FIELD_W - 30);
-    const spotY = clamp(offsider.y, 24, FIELD_H - 24);
+    const spotX = clamp(offsider.x, 40, FIELD_W - 40);
+    const spotY = clamp(offsider.y, 28, FIELD_H - 28);
+
+    // Stop the ball dead at the spot.
     this.ball.x = spotX;
     this.ball.y = spotY;
     this.ball.z = 0;
     this.ball.vx = this.ball.vy = this.ball.vz = 0;
+
+    // Everyone resets toward their formation shape, but SHIFTED downfield by
+    // the same amount as the free-kick spot so the restart frames around the
+    // ball instead of snapping back to the halfway line. Attackers are pulled
+    // a touch back behind the ball so they're clearly onside for the restart.
+    const shift = spotX - FIELD_W / 2;
+    for (const p of [...this.homePlayers, ...this.awayPlayers]) {
+      p.x = clamp(p.anchor.x + shift, p.r, FIELD_W - p.r);
+      p.y = p.anchor.y;
+      p.vx = p.vy = 0;
+      p.kickTimer = 0;
+      p.facing = { x: p.team === 'home' ? 1 : -1, y: 0 };
+    }
 
     // Nearest outfield defender takes the kick; drop him onto the ball facing
     // upfield so he can play out.
     const taker =
       this.nearestTo(
         defs.filter((p) => !p.isGK),
-        this.ball,
+        { x: spotX, y: spotY },
       ) ?? defs[1];
-    const defAtk = defTeam === 'home' ? 1 : -1;
-    taker.x = clamp(spotX - defAtk * 14, taker.r, FIELD_W - taker.r);
+    taker.x = clamp(spotX - defAtk * 16, taker.r, FIELD_W - taker.r);
     taker.y = spotY;
     taker.vx = taker.vy = 0;
     taker.facing = { x: defAtk, y: 0 };
 
     this.owner = taker;
-    if (defTeam === 'home') this.controlled = taker;
+    this.controlled =
+      defTeam === 'home' ? taker : this.homePlayers[this.homeTeam.kickoffFwd];
 
-    this.setMessage('OFFSIDE', 1.5);
-    this.freeze = 0.9;
+    // Pan the camera to the restart and hold play for a beat.
+    this.camX = clamp(spotX, CAM_MIN, CAM_MAX);
+    this.camY = clamp(spotY, CAM_Y_MIN, CAM_Y_MAX);
+    this.setMessage('OFFSIDE', 1.6);
+    this.freeze = 1.1;
 
-    // Clear transient ball state so play restarts cleanly from the free kick.
+    // Clear all transient ball/possession state so play restarts cleanly.
     this.offsideFlags.clear();
     this.lastKicker = null;
     this.kickerLock = 0;
-    this.stealProtect = 1.0;
+    this.stealProtect = 1.2;
     this.dispossessed = null;
     this.dispossessedTimer = 0;
+    this.markAssign.clear();
+    this.markTimer = 0;
     this.ballFree = 0;
     this.jostle = 0;
+    this.tackleTimer = 0;
+    this.tackleCooldown = 0;
     this.chargeKey = null;
     this.chargeTime = 0;
     this.bufferTimer = 0;

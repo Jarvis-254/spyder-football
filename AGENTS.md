@@ -430,9 +430,13 @@ game state yet (no Stores/queries for gameplay).
   GK excluded as a receiver. In `resolvePossession`, the FIRST teammate to touch
   the played ball: if they're in `offsideFlags` → `callOffside(them)`; any other
   first touch (defender or onside mate) clears the flags (phase resolved).
-  `callOffside` = indirect free kick to the defending team at the offside spot:
-  ball placed there, nearest outfield defender dropped on it as `owner` (and as
-  `controlled` if home defends), "OFFSIDE" msg + 0.9s freeze, transient state
+  `callOffside` = FULL RESTART (user: "it should restart like FIFA, not keep
+  playing"): ball stopped dead at the spot; BOTH teams reposition to their
+  formation anchors SHIFTED by (spotX - FIELD_W/2) so the shape frames the
+  restart instead of snapping to halfway; nearest outfield defender dropped on
+  the ball as `owner` (and `controlled` if home defends, else control reverts to
+  home's kickoff fwd); camera pans to the spot; "OFFSIDE" msg + 1.1s freeze;
+  all transient state (stealProtect=1.2, marks, jostle, tackle/charge timers)
   reset. Flags also cleared in resetKickoff. Through balls/long balls/GK punts
   all funnel through afterKick, so all are policed.
 
