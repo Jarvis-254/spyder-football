@@ -431,13 +431,17 @@ game state yet (no Stores/queries for gameplay).
   the played ball: if they're in `offsideFlags` → `callOffside(them)`; any other
   first touch (defender or onside mate) clears the flags (phase resolved).
   `callOffside` = FULL RESTART (user: "it should restart like FIFA, not keep
-  playing"): ball stopped dead at the spot; BOTH teams reposition to their
-  formation anchors SHIFTED by (spotX - FIELD_W/2) so the shape frames the
-  restart instead of snapping to halfway; nearest outfield defender dropped on
-  the ball as `owner` (and `controlled` if home defends, else control reverts to
-  home's kickoff fwd); camera pans to the spot; "OFFSIDE" msg + 1.1s freeze;
-  all transient state (stealProtect=1.2, marks, jostle, tackle/charge timers)
-  reset. Flags also cleared in resetKickoff. Through balls/long balls/GK punts
+  playing"): ball stopped dead at the spot. Players KEEP their live positions
+  (play stopped where it was) — we only zero momentum + face them upfield. The
+  ONLY exception: the offending attacking team's players that are ahead of the
+  ball get pulled BACK onside (x → spotX - atkDir*(28+ahead), preserving their
+  y lane). NOTE: the earlier version teleported EVERYONE to anchor+shift which
+  clamped them onto the far goal line (bug the user reported — "everyone at the
+  goal line"); do NOT reintroduce a global shift. Nearest outfield defender is
+  dropped on the ball as `owner` (and `controlled` if home defends, else control
+  reverts to home's kickoff fwd); camera pans to the spot; "OFFSIDE" msg + 1.1s
+  freeze; all transient state (stealProtect=1.2, marks, jostle, tackle/charge
+  timers) reset. Flags also cleared in resetKickoff. Through/long balls/GK punts
   all funnel through afterKick, so all are policed.
 
 ### NOT YET BUILT (future slices)

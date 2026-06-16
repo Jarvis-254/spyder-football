@@ -1309,14 +1309,22 @@ export class PitchKickGame {
     this.ball.z = 0;
     this.ball.vx = this.ball.vy = this.ball.vz = 0;
 
-    // Everyone resets toward their formation shape, but SHIFTED downfield by
-    // the same amount as the free-kick spot so the restart frames around the
-    // ball instead of snapping back to the halfway line. Attackers are pulled
-    // a touch back behind the ball so they're clearly onside for the restart.
-    const shift = spotX - FIELD_W / 2;
+    // Reposition for the restart like a real free kick: everyone KEEPS their
+    // current spot (play just stopped where it was) — we only clear momentum
+    // and turn them upfield. The one exception is the OFFENDING attacking
+    // team: any of their players standing ahead of the ball is pulled BACK
+    // onside (to the own-half side of the spot) so they're clearly behind the
+    // restart and out of the kicker's way. The defending team holds its shape.
+    const atkDir = atkTeam === 'home' ? 1 : -1; // attackers' attacking axis
     for (const p of [...this.homePlayers, ...this.awayPlayers]) {
-      p.x = clamp(p.anchor.x + shift, p.r, FIELD_W - p.r);
-      p.y = p.anchor.y;
+      if (p.team === atkTeam && !p.isGK) {
+        // Distance the player is AHEAD of the ball along the attack axis.
+        const ahead = (p.x - spotX) * atkDir;
+        if (ahead > -20) {
+          // Drop them back behind the ball, keeping their vertical lane.
+          p.x = clamp(spotX - atkDir * (28 + ahead), p.r, FIELD_W - p.r);
+        }
+      }
       p.vx = p.vy = 0;
       p.kickTimer = 0;
       p.facing = { x: p.team === 'home' ? 1 : -1, y: 0 };
