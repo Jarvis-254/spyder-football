@@ -346,9 +346,28 @@ game state yet (no Stores/queries for gameplay).
     * W*1.6; y = anchor.y + ballShift * (defend .4 : .28). `formationTarget`
     was REMOVED (only keeperTarget remains). Catch-up: callers boost to
     RUN_SPEED when >240px from target spot.
-  - ATTACK extras: non-DF players level/ahead of carrier (within 560px)
-    run in behind to x = carrier.x + 260 at RUN_SPEED=200 (through-ball
-    targets); final spot drifts away from any opponent within 95px.
+  - ATTACK extras — ROLE-BASED SUPPORT (v2, after user: "as soon as I have
+    the ball everyone runs to the opponent's goal / all do the same thing /
+    nobody opens up or comes back"). Old v1 made EVERY non-DF level/ahead of
+    the carrier within 560px run to the SAME spot (carrier.x+260) → whole
+    team funneled at goal. FIFA model (confirmed via EA FC26 Pitch Notes:
+    "always have someone available as a passing option", a MIX of run types)
+    is now implemented as a team-level assignment `computeAttackSupport()`
+    (recomputed every 0.35s with computeMarking; fills `attackRole` Map for
+    the team in possession; roles: 'run'|'short'|'width'|'hold'):
+    - run: up-to-2 most-advanced non-DFs that are level/ahead of the carrier
+      → penetrate to carrier.x + dir*300, staggered into their lane
+      (y = mid + laneSide*FIELD_H*0.22 + ballShift*0.2), RUN_SPEED.
+    - width: remaining non-DFs whose anchor lane is wide (|anchor.y-mid| >
+      FIELD_H*0.2) → hold touchline (y = mid + laneSide*FIELD_H*0.4) a touch
+      ahead of the ball (fromDepth(ballD+90)).
+    - short: up-to-2 nearest remaining mates behind/level with the carrier →
+      check BACK to carrier.x - dir*150, offset laneSide*150 (safe outlet).
+    - hold: everyone else (DFs + deep mids) keep the zonal line `t` to
+      recycle possession + screen the counter.
+    laneSide = anchor.y < mid ? -1 : 1. Final spot still drifts away from
+    any opponent within 95px. Net effect: a couple run in behind, a couple
+    show short, wingers stretch wide, defenders stay home — varied options.
   - DEFEND extras — man-marking overrides the zonal spot:
     `computeMarking()` every 0.35s (markTimer, markAssign Map
     defender->threat, cleared on kickoff) greedily assigns threats

@@ -419,6 +419,7 @@ export class PitchKickGame {
     if (this.markTimer <= 0) {
       this.markTimer = 0.35;
       this.computeMarking();
+      this.computeAttackSupport();
     }
 
     this.updateSwitchHint();
@@ -1252,6 +1253,19 @@ export class PitchKickGame {
   private markTimer = 0;
 
   /**
+   * Attacking off-ball role for each non-carrier teammate of the team in
+   * possession. FIFA gives the carrier VARIED options instead of everyone
+   * sprinting at goal: a couple penetrate in behind (`run`), a couple check
+   * back toward the ball as a safe outlet (`short`), wide players stretch the
+   * defence on the touchline (`width`), and the rest hold shape to recycle
+   * possession and screen the counter (`hold`). Recomputed with the marking.
+   */
+  private attackRole = new Map<
+    PlayerEntity,
+    'run' | 'short' | 'width' | 'hold'
+  >();
+
+  /**
    * Assign defenders to man-mark dangerous opponents, like FIFA marks
    * attackers who get near the defensive zone. Greedy: the most dangerous
    * threat (closest to the defended goal) is claimed first by the nearest
@@ -1315,6 +1329,55 @@ export class PitchKickGame {
       x: clamp(t.x, 20, FIELD_W - 20),
       y: clamp(t.y, 20, FIELD_H - 20),
     };
+  }
+
+  /**
+   * Hand out attacking off-ball roles to the team in possession so the carrier
+   * always has a MIX of options (FIFA "player support"), instead of every
+   * teammate making the same run at goal. Greedy + position-based so it's
+   * stable across the 0.35s recompute. See `attackRole` for the role meanings.
+   */
+  private computeAttackSupport() {
+    this.attackRole.clear();
+    const owner = this.owner;
+    if (!owner) return;
+    const dir = owner.team === 'home' ? 1 : -1;
+    const ownGoalX = owner.team === 'home' ? 0 : FIELD_W;
+    /** Distance up the pitch (attacking direction) from own goal. */
+    const depth = (x: number) => (x - ownGoalX) * dir;
+    const ballD = depth(owner.x);
+    const team = owner.team === 'home' ? this.homePlayers : this.awayPlayers;
+    const mates = team.filter((p) => p !== owner && !p.isGK);
+
+    // RUNNERS: the up-to-2 most advanced non-defenders that are level with or
+    // ahead of the carrier make penetrating runs in behind.
+    const runners = mates
+      .filter((p) => p.role !== 'DF' && depth(p.x) > ballD - 120)
+      .sort((a, b) => depth(b.x) - depth(a.x))
+      .slice(0, 2);
+    for (const p of runners) this.attackRole.set(p, 'run');
+
+    // WIDTH: remaining non-defenders whose formation lane hugs a touchline
+    // stay wide to stretch the defence.
+    for (const p of mates) {
+      if (this.attackRole.has(p) || p.role === 'DF') continue;
+      if (Math.abs(p.anchor.y - FIELD_H / 2) > FIELD_H * 0.2) {
+        this.attackRole.set(p, 'width');
+      }
+    }
+
+    // SHORT: the up-to-2 nearest remaining mates behind/level with the carrier
+    // check back toward the ball as a safe passing outlet.
+    const shortMen = mates
+      .filter((p) => !this.attackRole.has(p) && depth(p.x) <= ballD + 60)
+      .sort((a, b) => dist(a, owner) - dist(b, owner))
+      .slice(0, 2);
+    for (const p of shortMen) this.attackRole.set(p, 'short');
+
+    // Everyone else holds shape (recycle / cover the counter).
+    for (const p of mates) {
+      if (!this.attackRole.has(p)) this.attackRole.set(p, 'hold');
+    }
   }
 
   /**
@@ -1396,19 +1459,42 @@ export class PitchKickGame {
       return { pos: this.clampTarget(t), speed: baseSpeed };
     }
 
-    // ATTACK
+    // ATTACK — role-based support (computeAttackSupport) so the team offers a
+    // MIX of options instead of everyone sprinting at goal. `t` already holds
+    // the zonal line target, which is what `hold` players use.
     if (phase === 'attack' && owner) {
       let speed = baseSpeed;
-      // Run in behind when level with / ahead of the carrier and near
-      // the play — this is what creates through-ball targets.
-      if (
-        p.role !== 'DF' &&
-        (p.x - owner.x) * dir > -50 &&
-        dist(p, owner) < 560
-      ) {
-        t.x = clamp(owner.x + dir * 260, 150, FIELD_W - 150);
+      const role = this.attackRole.get(p) ?? 'hold';
+      // Which touchline this player's formation lane favours.
+      const laneSide = p.anchor.y < FIELD_H / 2 ? -1 : 1;
+
+      if (role === 'run') {
+        // Penetrate in behind, ahead of the carrier, staggered into this
+        // player's lane so two runners don't converge on the same spot.
+        t.x = clamp(owner.x + dir * 300, 200, FIELD_W - 120);
+        t.y = clamp(
+          FIELD_H / 2 +
+            laneSide * FIELD_H * 0.22 +
+            (this.ball.y - FIELD_H / 2) * 0.2,
+          70,
+          FIELD_H - 70,
+        );
         speed = RUN_SPEED;
+      } else if (role === 'short') {
+        // Check back toward the ball — slightly behind the carrier and off to
+        // one side — to give a safe, supporting pass option.
+        t.x = clamp(owner.x - dir * 150, 120, FIELD_W - 120);
+        t.y = clamp(owner.y + laneSide * 150, 70, FIELD_H - 70);
+        speed = Math.max(baseSpeed, RUN_SPEED * 0.8);
+      } else if (role === 'width') {
+        // Hold the touchline a touch ahead of the ball to stretch the block.
+        t.x = fromDepth(clamp(ballD + 90, W * 0.25, W - 200));
+        t.y = clamp(FIELD_H / 2 + laneSide * FIELD_H * 0.4, 80, FIELD_H - 80);
+        speed = Math.max(baseSpeed, RUN_SPEED * 0.7);
       }
+      // `hold`: keep the zonal `t` (defenders + deep mids stay back to recycle
+      // and screen the counter).
+
       // Get open: drift away from the nearest opponent near the spot so
       // there's always a clean passing option.
       const pos = this.clampTarget(t);
