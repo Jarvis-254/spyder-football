@@ -2461,18 +2461,22 @@ export class PitchKickGame {
     const z = this.ball.z;
     // Height in screen pixels (same projection scale as horizontal distance).
     const lift = z * q.s;
-    // The ball appears a touch bigger the higher (closer to camera) it flies.
     // BALL_VIS_SCALE oversizes the *drawn* ball ~30% over its true 0.22 m radius
     // (collision/physics still use the real radius) — football games do this so
     // the ball reads clearly and "feels" right, instead of being a tiny dot.
-    const r = this.ball.r * BALL_VIS_SCALE * q.s * (1 + Math.min(z, M(8)) * 0.012);
+    const baseR = this.ball.r * BALL_VIS_SCALE * q.s;
+    // The ball appears a touch bigger the higher (closer to camera) it flies —
+    // but only subtly (≈+18% at the apex), not ballooning to several times its
+    // size like the old 0.012/m factor did.
+    const r = baseR * (1 + Math.min(z, M(8)) * 0.0022);
 
-    // Shadow on the grass at the ground point — shrinks + fades as the ball
-    // climbs, so height reads clearly even on a flat field.
-    const hf = 1 / (1 + z * 0.03);
-    ctx.fillStyle = `rgba(0,0,0,${0.32 * hf})`;
+    // Shadow on the grass at the ground point. It shrinks + fades a little as
+    // the ball climbs so height still reads, but it stays generously sized and
+    // visible so you can always track where an airborne ball will land.
+    const hf = 1 / (1 + z * 0.012);
+    ctx.fillStyle = `rgba(0,0,0,${0.18 + 0.24 * hf})`;
     ctx.beginPath();
-    ctx.ellipse(q.x + 2 + lift * 0.12, q.y + 1.5, r * 1.05 * hf, r * 0.4 * hf, 0, 0, Math.PI * 2);
+    ctx.ellipse(q.x + 2 + lift * 0.12, q.y + 1.5, baseR * 1.5 * hf, baseR * 0.6 * hf, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Ball sits slightly above its ground point, plus its airborne height.
