@@ -248,6 +248,8 @@ export class PitchKickGame {
   /** Kick key currently charging (FIFA: press charges, release kicks). */
   private chargeKey: string | null = null;
   private chargeTime = 0;
+  /** Q held when the charge began → loft the pass (Q+W = aerial through ball). */
+  private chargeLofted = false;
   /** Buffered first-time kick: charge started before the ball arrived.
    *  `bufferTimer` counts down the window; `kickPending` = key already
    *  released, so fire the moment possession is gained. */
@@ -722,6 +724,14 @@ export class PitchKickGame {
 
   private handleSwitchKey() {
     if (!this.justPressed.includes('KeyQ')) return;
+    // Q doubles as the LOB MODIFIER (Q+W = aerial through ball). When we have
+    // the ball — or a pass key is held/charging — Q is being used to modify a
+    // kick, so it must NOT switch players away from the carrier.
+    const usingAsModifier =
+      this.owner === this.controlled ||
+      !!this.chargeKey ||
+      [...KICK_KEYS].some((k) => this.keys.has(k));
+    if (usingAsModifier) return;
     const target =
       this.switchHint ?? this.bestSwitchCandidate(this.controlled);
     if (target) {
@@ -824,6 +834,7 @@ export class PitchKickGame {
         if (KICK_KEYS.has(code)) {
           this.chargeKey = code;
           this.chargeTime = 0;
+          this.chargeLofted = this.keys.has('KeyQ');
           this.kickPending = false;
           this.bufferTimer = owns ? 0 : KICK_BUFFER;
           break;
@@ -839,9 +850,10 @@ export class PitchKickGame {
         if (this.kickPending || released) {
           const t = clamp(this.chargeTime / CHARGE_FULL, 0, 1);
           const code = this.chargeKey;
+          const lofted = this.chargeLofted || this.keys.has('KeyQ');
           this.chargeKey = null;
           this.kickPending = false;
-          this.doHomeKick(code, t);
+          this.doHomeKick(code, t, lofted);
         } else {
           this.chargeTime = Math.min(this.chargeTime + dt, CHARGE_FULL);
         }
@@ -874,7 +886,7 @@ export class PitchKickGame {
   // ---- kicking / passing --------------------------------------------------
 
   /** @param charge 0..1 power gauge from how long the key was held. */
-  private doHomeKick(code: string, charge: number) {
+  private doHomeKick(code: string, charge: number, lofted = false) {
     const kicker = this.controlled;
 
     if (code === 'KeyD') {
@@ -886,7 +898,7 @@ export class PitchKickGame {
     const isLong = code === 'KeyA';
     const isThrough = code === 'KeyW';
     if (!isShort && !isLong && !isThrough) return;
-    this.passAssisted(kicker, { isShort, isLong, isThrough, charge });
+    this.passAssisted(kicker, { isShort, isLong, isThrough, lofted, charge });
   }
 
   /**
@@ -980,10 +992,12 @@ export class PitchKickGame {
       isShort: boolean;
       isLong: boolean;
       isThrough: boolean;
+      lofted?: boolean;
       charge: number;
     },
   ) {
     const { isShort, isLong, isThrough, charge } = opts;
+    const lofted = !!opts.lofted;
 
     const target = this.pickPassTarget(kicker, {
       short: isShort,
@@ -1037,6 +1051,19 @@ export class PitchKickGame {
     }
 
     const d = dist(this.ball, aim);
+
+    if (isThrough && lofted) {
+      // Q + W = a LOFTED through ball (FIFA): same lead-into-space aim as the
+      // grounded through ball, but chipped through the air so it clears a
+      // defender stepping into the lane and drops into the runner's path.
+      // Lower, faster arc than a raking long ball so it still threads behind.
+      const T = clamp(0.5 + d / M(95) + charge * 0.2, 0.5, 1.15);
+      const vz = 0.5 * GRAVITY * T;
+      const hspeed = Math.min((d / T) * 1.08, 1500);
+      this.kickBallToward(aim, hspeed, kicker, vz, 0.05);
+      this.controlled = target;
+      return;
+    }
 
     if (isLong) {
       // Long ball = a LOFTED, ballistic pass (FIFA): it flies over the

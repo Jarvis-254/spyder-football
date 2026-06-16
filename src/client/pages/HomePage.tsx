@@ -15,6 +15,7 @@ const CONTROLS: { keys: string; label: string }[] = [
   { keys: 'S', label: 'Short pass' },
   { keys: 'A', label: 'Long pass' },
   { keys: 'W', label: 'Through pass' },
+  { keys: 'Q + W', label: 'Lofted through ball' },
   { keys: 'C', label: 'Contain (hold)' },
   { keys: 'Q', label: 'Switch player' },
 ];

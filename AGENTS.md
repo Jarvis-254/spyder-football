@@ -112,6 +112,16 @@ game state yet (no Stores/queries for gameplay).
 ### Controls (FIFA PC style)
 - Arrows = move, E = sprint, D = shot, S = short pass, A = long pass,
   W = through pass (leads receiver ~110px toward goal), Q = switch player.
+- Q+W = LOFTED through ball (FIFA chipped through pass): hold Q while charging
+  W. Q acts as a MODIFIER, not a player-switch, when used during a kick —
+  handleSwitchKey suppresses the switch if owner===controlled, a charge is in
+  progress, or any KICK_KEY is held. chargeLofted is captured at charge start
+  (this.keys.has('KeyQ')); fire point recomputes lofted = chargeLofted ||
+  keys.has('KeyQ') and forwards it through doHomeKick(code,charge,lofted) into
+  passAssisted opts.lofted. In passAssisted, `isThrough && lofted` uses the
+  SAME lead-into-space aim as the grounded through ball but a ballistic arc
+  (T=clamp(0.5+d/M(95)+charge*0.2,0.5,1.15), vz=0.5*GRAVITY*T, hspeed=(d/T)*1.08)
+  — lower/faster than a long ball so it still threads behind a stepping defender.
 - KICK CHARGING (FIFA-researched: passes/shots charge on PRESS, execute
   on RELEASE; hold duration = power): chargeKey/chargeTime fields,
   CHARGE_FULL=0.8s. Release reads t=0..1; receiver & aim resolved at
