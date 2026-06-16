@@ -5,6 +5,32 @@ client-side, rendered on `<canvas>` with `requestAnimationFrame`. No backend
 game state yet (no Stores/queries for gameplay).
 
 ### Game architecture
+- FILE SPLIT (June 2026, domains 1-5 of a 10-domain analysis): the old monolith
+  `engine.ts` (~2,834 lines) was split BY DOMAIN into pure/stateless modules.
+  `engine.ts` now imports from them and is ~1,924 lines (just the stateful
+  `PitchKickGame` class: loop, physics, input, AI, possession, match rules).
+  New sibling files in `src/client/game/`:
+  - `constants.ts` — ALL world scale/geometry/physics/gameplay tunables
+    (FIELD_W, PX_PER_M, FIELD_H, M(), goal geom, PLAYER_R, BALL_R, BALL_VIS_SCALE,
+    PLAYER_SCALE, GRAVITY/BOUNCE/CONTROL_HEIGHT, every *_SPEED, CONTROL_DIST,
+    BALL_DECAY, CHARGE_FULL, KICK_BUFFER, MATCH_*_SECS, ACCEL, TURN_RATE,
+    HAIR_COLORS, SKIN_TONES, CANVAS_W/H). Import-free.
+  - `math.ts` — pure helpers: len, dist, clamp, shade, distToSegment.
+  - `types.ts` — Vec, Team, Role, PlayerEntity, HudState, StateListener.
+  - `projection.ts` — the TV broadcast camera: holds module state viewCamX/Y,
+    exports `proj()`, `setCamera(camX,camY)`, S_FAR/ZOOM/PITCH_TOP and the
+    CAM_MIN/MAX/CAM_Y_MIN/MAX clamps. setCamera is how the engine syncs the cam.
+  - `render.ts` — PURE renderer (~810 lines, was the biggest domain). Exports
+    `renderScene(ctx, scene)` + `Scene`/`BallView` types. The engine builds a
+    `Scene` snapshot each frame (camX/camY, ball, players[] as {p,kit} away-first,
+    controlled, switchHint) and hands it over; `renderScene` calls `setCamera`
+    then draws sky/crowd/pitch/goals/depth-sorted sprites+ball. NO game state
+    lives here — all former `this.X` draw methods are private free functions.
+  engine.ts RE-EXPORTS `CANVAS_W`, `CANVAS_H`, `HudState`, `TeamData` so
+  HomePage.tsx still imports them from `@/client/game/engine` unchanged.
+  Domains 6-10 (input, player-actions, off-ball AI, possession/physics, match
+  rules) were NOT extracted — they read/write shared private class state and
+  would need a GameContext refactor (higher risk); left in engine.ts for now.
 - `src/client/game/engine.ts` — `PitchKickGame` class: the whole game loop,
   physics, input handling (window keydown/keyup), PC AI, and canvas rendering.
   REAL-SCALE PITCH: everything derives from `PX_PER_M = FIELD_W/105` (a
