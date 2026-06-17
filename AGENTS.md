@@ -236,6 +236,34 @@ game state yet (no Stores/queries for gameplay).
   meetX/Y; no arrow held → full auto. Heading = lerp(input, dir-to-meet,
   gravity); speed bumps to RUN_SPEED when gravity>0.25 (unless sprinting) so
   they can actually get there.
+- GOALKEEPER REWORK (added after "keeper deflects onto shooter / too passive /
+  no pickup / no control-switch / W rush"). 5 changes in engine.ts:
+  (1) ACTIVE POSITIONING — `keeperTarget` replaced by `keeperPlan(p)` returning
+  {pos,speed}. Base behaviour = angle play: come off the line by
+  `comeOut=clamp(220-ballDX*0.26,14,150)` and shift BOTH axes toward the ball
+  (`f=clamp(comeOut/gl,0,0.5)` lerp from goal-center toward ball), all clamped
+  inside the box (x to ownGoalX±M(16) boxEdge, y to goalTop+14..goalBottom-14).
+  Speed RUN_SPEED if >90px away else WALK_SPEED. Used via offBallPlan
+  (`if (p.isGK) return this.keeperPlan(p)`).
+  (2) SWEEPER/AGGRESSION RUSH — auto-rush when a loose ball (no owner) or an
+  OPPONENT carrier is inside the box X (ballDX<M(18)) AND no own defender is
+  within 64px of the ball; also manual rush when home GK + `gkRush>0`. Rush
+  charges at SPRINT_SPEED toward the ball lead-point (ball + vel*0.12), clamped
+  to the box. Handles 1v1: keeper comes out to smother.
+  (3) PICK UP LOOSE/SLOW BALL — in resolvePossession the GK's gather reach is
+  CONTROL_DIST + (ballSpeed<320 ? 34 : 18) vs CONTROL_DIST for outfielders, so a
+  slow ball near his feet is claimed before an attacker can steal it.
+  (4) CONTROL SWITCH TO GK — removed the old `!best.isGK` exclusion; when the
+  home GK gains possession he becomes `this.controlled` (auto-switch like any
+  outfielder). On any GK gain we set stealProtect=1.1 (secure catch, can't be
+  immediately re-stolen) and clear gkRush.
+  (5) GK HOLDS BALL AT BODY — `dribble(owner)` has a GK branch at the top:
+  ball snaps to the keeper's body (lerp 0.6), z/vz zeroed, velocity = owner's —
+  so a saved/caught ball stays glued instead of being pushed forward onto the
+  onrushing shooter (the old deflect-onto-shooter bug).
+  W-WITHOUT-BALL: in updateControlled, `!owns && !incoming && justPressed W` sets
+  `gkRush=1.5` (FIFA "rush keeper out"). gkRush decays each frame in update(),
+  reset in resetKickoff, cleared on GK gain.
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each

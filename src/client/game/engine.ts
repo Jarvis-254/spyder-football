@@ -120,6 +120,10 @@ export class PitchKickGame {
    *  claim it, so a just-struck shot/pass clears the cluster instead of being
    *  instantly received by an opponent standing point-blank at the kicker. */
   private ballFree = 0;
+  /** Manual keeper-rush window (home GK), set by pressing W without the ball —
+   *  the keeper charges off his line to claim/smother the ball (FIFA's "rush
+   *  keeper out"). Decays each frame; cleared the instant he gathers it. */
+  private gkRush = 0;
 
   private homeScore = 0;
   private awayScore = 0;
@@ -273,6 +277,7 @@ export class PitchKickGame {
     this.lastKicker = null;
     this.kickerLock = 0;
     this.passReceiver = null;
+    this.gkRush = 0;
     this.stealProtect = 0;
     this.dispossessed = null;
     this.dispossessedTimer = 0;
@@ -403,6 +408,7 @@ export class PitchKickGame {
     if (this.kickerLock > 0) this.kickerLock -= dt;
     else this.lastKicker = null;
     if (this.ballFree > 0) this.ballFree -= dt;
+    if (this.gkRush > 0) this.gkRush -= dt;
     if (this.cpuDecision > 0) this.cpuDecision -= dt;
     if (this.stealProtect > 0) this.stealProtect -= dt;
     if (this.tackleCooldown > 0) this.tackleCooldown -= dt;
@@ -618,6 +624,14 @@ export class PitchKickGame {
     // is buffered as a first-time shot/pass, NOT a tackle.
     const incoming =
       !owns && this.owner === null && this.lastKicker?.team === 'home';
+
+    // W without the ball = "rush keeper out" (FIFA): send your goalkeeper
+    // charging off his line to claim/smother the ball. Only meaningful when
+    // we're defending (not while our own pass is incoming, where W is a
+    // buffered first-time through-ball).
+    if (!owns && !incoming && this.justPressed.includes('KeyW')) {
+      this.gkRush = 1.5;
+    }
 
     // D without the ball = standing tackle (FIFA: a committed lunge at
     // the ball — winning it cleanly if it's in reach, leaving you beaten
@@ -1349,20 +1363,72 @@ export class PitchKickGame {
 
   // ---- teammates AI (home, non-controlled) --------------------------------
 
-  /** Keeper stays on his line and tracks the ball across the goal mouth. */
-  private keeperTarget(p: PlayerEntity): Vec {
+  /**
+   * Active keeper positioning (FIFA-style sweeper-keeper). Instead of parking
+   * on the line, the keeper plays the ANGLE: he sits on the segment from his
+   * goal centre to the ball, coming further off his line — and shifting
+   * laterally to cover the near post — the closer the ball gets. When the ball
+   * is loose or an opponent is bearing down in/near the box with no defender
+   * challenging (a 1v1), he RUSHES out at speed to smother it. `this.gkRush`
+   * (set by the W key for the home side) forces an aggressive charge too.
+   */
+  private keeperPlan(p: PlayerEntity): { pos: Vec; speed: number } {
     const mid = FIELD_H / 2;
-    const ty = clamp(
-      mid + (this.ball.y - mid) * 0.55,
-      goalTop + 16,
-      goalBottom - 16,
-    );
-    // Step slightly off the line when the ball is close on his side.
     const ownGoalX = p.team === 'home' ? 0 : FIELD_W;
-    const ballDX = Math.abs(this.ball.x - ownGoalX);
-    const out = ballDX < 320 ? 46 : 26;
-    const tx = p.team === 'home' ? p.anchor.x + out - 26 : p.anchor.x - out + 26;
-    return { x: tx, y: ty };
+    const sign = p.team === 'home' ? 1 : -1; // +1 = "out" toward the field
+    const bx = this.ball.x;
+    const by = this.ball.y;
+    // How deep the ball is toward this keeper's goal, along the goal-to-goal
+    // axis (0 = on the goal line, larger = further upfield).
+    const ballDX = Math.abs(bx - ownGoalX);
+
+    // ---- Danger / rush detection ----
+    const carrier =
+      this.owner && this.owner.team !== p.team ? this.owner : null;
+    const mates = (p.team === 'home' ? this.homePlayers : this.awayPlayers)
+      .filter((m) => !m.isGK);
+    // Is a teammate already right on the ball (challenging)? If so, no need to
+    // abandon the goal — only rush when it's genuinely the keeper's to claim.
+    const defenderOnBall = mates.some((m) => dist(m, this.ball) < 64);
+    const manualRush = p.team === 'home' && this.gkRush > 0;
+    const ballInBoxX = ballDX < M(18); // ~ edge of the penalty area
+    const looseClose = !this.owner && ballInBoxX;
+    const carrierThreat = !!carrier && ballInBoxX;
+    const autoRush = (looseClose || carrierThreat) && !defenderOnBall;
+    const boxEdge = ownGoalX + sign * M(16); // don't sweep past the box
+
+    if (manualRush || autoRush) {
+      // Charge the ball to smother / claim it, anticipating its motion a touch
+      // and staying inside the box (no keeper sprinting to the halfway line).
+      const aimX = bx + this.ball.vx * 0.12;
+      const aimY = by + this.ball.vy * 0.12;
+      const tx =
+        sign > 0
+          ? clamp(aimX, ownGoalX + 12, boxEdge)
+          : clamp(aimX, boxEdge, ownGoalX - 12);
+      const ty = clamp(aimY, goalTop - 28, goalBottom + 28);
+      return { pos: { x: tx, y: ty }, speed: SPRINT_SPEED };
+    }
+
+    // ---- Angle play (no rush) ----
+    // Come off the line more as the ball nears: ~14px when it's a long way
+    // out, up to ~150px on the edge of the box.
+    const comeOut = clamp(220 - ballDX * 0.26, 14, 150);
+    const gx = bx - ownGoalX;
+    const gy = by - mid;
+    const gl = Math.max(120, len(gx, gy));
+    // Fraction along the goal→ball line; bounded so lateral tracking grows as
+    // the ball gets close (small/central when it's far away).
+    const f = clamp(comeOut / gl, 0, 0.5);
+    const tx =
+      sign > 0
+        ? clamp(ownGoalX + gx * f, ownGoalX + 14, boxEdge)
+        : clamp(ownGoalX + gx * f, boxEdge, ownGoalX - 14);
+    const ty = clamp(mid + gy * f, goalTop + 14, goalBottom - 14);
+    // Hustle back into position when badly out of it, else glide.
+    const here = { x: tx, y: ty };
+    const speed = dist(p, here) > 90 ? RUN_SPEED : WALK_SPEED;
+    return { pos: here, speed };
   }
 
   // ---- off-ball intelligence (FIFA-style, both teams) ----------------------
@@ -1517,7 +1583,7 @@ export class PitchKickGame {
     p: PlayerEntity,
     baseSpeed: number,
   ): { pos: Vec; speed: number } {
-    if (p.isGK) return { pos: this.keeperTarget(p), speed: baseSpeed };
+    if (p.isGK) return this.keeperPlan(p);
     const dir = p.team === 'home' ? 1 : -1;
     const ownGoalX = p.team === 'home' ? 0 : FIELD_W;
     /** Distance from own goal along the attacking direction (0..FIELD_W). */
@@ -1711,10 +1777,9 @@ export class PitchKickGame {
   private updateAwayTeam(dt: number) {
     const carrier =
       this.owner && this.owner.team === 'away' ? this.owner : null;
-    // The keeper never leaves his area to chase.
-    const outfield = this.awayPlayers.filter(
-      (p) => !p.isGK || dist(p, this.ball) < 200,
-    );
+    // The keeper isn't a generic chaser — his own keeperPlan decides when to
+    // hold the line vs. rush out (and keeps him inside the box).
+    const outfield = this.awayPlayers.filter((p) => !p.isGK);
     const chaser =
       carrier ?? this.nearestTo(outfield, this.ball) ?? this.awayPlayers[1];
 
@@ -1915,14 +1980,21 @@ export class PitchKickGame {
       return;
     }
 
+    const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     let best: PlayerEntity | null = null;
     let bestD = Infinity;
     for (const p of [...this.homePlayers, ...this.awayPlayers]) {
       if (this.kickerLock > 0 && p === this.lastKicker) continue;
       // A freshly dispossessed player can't win the ball straight back.
       if (this.dispossessed === p) continue;
+      // Keepers have HANDS: a bigger gather radius so a slow ball at their feet
+      // is claimed (not left for an attacker to steal), and enough reach to
+      // pull in / parry a shot they get across to.
+      const reach = p.isGK
+        ? CONTROL_DIST + (ballSpeed < 320 ? 34 : 18)
+        : CONTROL_DIST;
       const d = dist(p, this.ball);
-      if (d <= CONTROL_DIST && d < bestD) {
+      if (d <= reach && d < bestD) {
         bestD = d;
         best = p;
       }
@@ -1977,11 +2049,18 @@ export class PitchKickGame {
 
     this.owner = best;
     if (best) {
-      // FIFA-style: when YOUR team gains possession, you control the man
-      // on the ball (the GK distributes by himself). Off-ball switching
-      // remains strictly Q-only.
-      if (best.team === 'home' && !best.isGK) {
+      // FIFA-style: when YOUR team gains possession, you control the man on the
+      // ball — INCLUDING the keeper, so you can immediately clear/throw after a
+      // save (previously the GK was excluded and you couldn't take over).
+      if (best.team === 'home') {
         this.controlled = best;
+      }
+      if (best.isGK) {
+        // A keeper CATCHES cleanly: secure the ball with a longer protection
+        // window so a striker can't instantly poke the held ball back out and
+        // tap in the rebound. The rush (if any) has done its job.
+        this.stealProtect = Math.max(this.stealProtect, 1.1);
+        this.gkRush = 0;
       }
       this.dribble(best);
       // Receiving a pass clears the kicker lock so play flows.
@@ -1993,6 +2072,18 @@ export class PitchKickGame {
   }
 
   private dribble(owner: PlayerEntity) {
+    // A keeper holds the ball in his HANDS at his chest — glued to his body,
+    // dead still. This stops a saved shot from squirting out in front (toward
+    // the onrushing striker) and being tapped back in.
+    if (owner.isGK) {
+      this.ball.x += (owner.x - this.ball.x) * 0.6;
+      this.ball.y += (owner.y - this.ball.y) * 0.6;
+      this.ball.z = 0;
+      this.ball.vz = 0;
+      this.ball.vx = owner.vx;
+      this.ball.vy = owner.vy;
+      return;
+    }
     // While protected (just won a tackle / received), keep the ball glued
     // to the feet instead of pushed out in front where it can be poked.
     const ahead =
