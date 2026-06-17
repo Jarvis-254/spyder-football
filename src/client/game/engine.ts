@@ -1404,15 +1404,23 @@ export class PitchKickGame {
     const boxEdge = ownGoalX + sign * M(16); // don't sweep past the box
 
     if (manualRush || autoRush) {
-      // Charge the ball to smother / claim it, anticipating its motion a touch
-      // and staying inside the box (no keeper sprinting to the halfway line).
-      const aimX = bx + this.ball.vx * 0.12;
-      const aimY = by + this.ball.vy * 0.12;
+      // Charge the ball to smother / claim it, anticipating its motion a touch.
+      const lead = manualRush ? 0.16 : 0.12;
+      const aimX = bx + this.ball.vx * lead;
+      const aimY = by + this.ball.vy * lead;
+      // A MANUAL W rush is an explicit "rush keeper out" command — let him chase
+      // the real ball well beyond the box, across the full width of the pitch,
+      // so he actually runs AT the ball instead of sliding to the box edge. The
+      // AUTO sweeper rush stays inside the box (no keeper at the halfway line).
+      const outLimit = manualRush ? M(40) : M(16);
+      const reachEdge = ownGoalX + sign * outLimit;
       const tx =
         sign > 0
-          ? clamp(aimX, ownGoalX + 12, boxEdge)
-          : clamp(aimX, boxEdge, ownGoalX - 12);
-      const ty = clamp(aimY, goalTop - 28, goalBottom + 28);
+          ? clamp(aimX, ownGoalX + 12, reachEdge)
+          : clamp(aimX, reachEdge, ownGoalX - 12);
+      const ty = manualRush
+        ? clamp(aimY, 20, FIELD_H - 20)
+        : clamp(aimY, goalTop - 28, goalBottom + 28);
       return { pos: { x: tx, y: ty }, speed: SPRINT_SPEED };
     }
 

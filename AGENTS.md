@@ -251,9 +251,14 @@ game state yet (no Stores/queries for gameplay).
   depth (ballDX<M(18)) AND centrality (|by-mid|<M(18)) — without the centrality
   gate the keeper charged sideways out of his net on FLANK attacks (ball near
   the goal line in X but far out wide), leaving the goal gaping. Flank balls now
-  keep him home playing the angle/near post. Rush
-  charges at SPRINT_SPEED toward the ball lead-point (ball + vel*0.12), clamped
-  to the box. Handles 1v1: keeper comes out to smother.
+  keep him home playing the angle/near post. Rush charges at SPRINT_SPEED toward
+  the ball lead-point (ball + vel*lead). MANUAL W rush vs AUTO sweeper rush differ
+  in leash: auto is clamped to the box (x≤M(16) out, y within goal mouth ±28) so
+  he never strays to midfield; MANUAL W is an explicit "rush keeper out" so he
+  chases the REAL ball up to M(40) out across the FULL pitch width (y 20..FIELD_H-20).
+  Bug fixed: previously BOTH used the box clamp, so pressing W with a central
+  upfield ball slid the keeper horizontally to the box edge and stopped instead
+  of running AT the ball — now manual W aims at the actual ball. Handles 1v1.
   (3) PICK UP LOOSE/SLOW BALL — in resolvePossession the GK's gather reach is
   CONTROL_DIST + (ballSpeed<320 ? 34 : 18) vs CONTROL_DIST for outfielders, so a
   slow ball near his feet is claimed before an attacker can steal it.
