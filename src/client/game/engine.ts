@@ -629,8 +629,11 @@ export class PitchKickGame {
     // charging off his line to claim/smother the ball. Only meaningful when
     // we're defending (not while our own pass is incoming, where W is a
     // buffered first-time through-ball).
-    if (!owns && !incoming && this.justPressed.includes('KeyW')) {
-      this.gkRush = 1.5;
+    if (!owns && !incoming) {
+      // A tap commits the keeper to a charge; HOLDING W keeps him out (FIFA's
+      // hold-to-rush) so he doesn't back-pedal to his line mid-charge.
+      if (this.justPressed.includes('KeyW')) this.gkRush = 1.5;
+      else if (this.keys.has('KeyW')) this.gkRush = Math.max(this.gkRush, 0.25);
     }
 
     // D without the ball = standing tackle (FIFA: a committed lunge at
@@ -1399,7 +1402,16 @@ export class PitchKickGame {
     const ballCentral = Math.abs(by - mid) < M(18);
     const ballInBox = ballInBoxX && ballCentral;
     const looseClose = !this.owner && ballInBox;
-    const carrierThreat = !!carrier && ballInBox;
+    // A central opponent CARRIER bearing down on goal (a 1v1): commit to come
+    // and smother even a little OUTSIDE the box, and stay committed while he
+    // approaches — otherwise the keeper charges out, his rush window lapses,
+    // and he back-pedals to his line in the dead zone before the box, which
+    // reads as "rushing then retreating for no reason".
+    const carrierCentral = !!carrier && Math.abs(carrier.y - mid) < M(22);
+    const carrierApproaching =
+      !!carrier && (sign > 0 ? carrier.vx < -15 : carrier.vx > 15);
+    const carrierThreat =
+      carrierCentral && ballDX < M(28) && (carrierApproaching || ballInBox);
     const autoRush = (looseClose || carrierThreat) && !defenderOnBall;
     const boxEdge = ownGoalX + sign * M(16); // don't sweep past the box
 

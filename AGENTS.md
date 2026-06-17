@@ -270,9 +270,19 @@ game state yet (no Stores/queries for gameplay).
   ball snaps to the keeper's body (lerp 0.6), z/vz zeroed, velocity = owner's —
   so a saved/caught ball stays glued instead of being pushed forward onto the
   onrushing shooter (the old deflect-onto-shooter bug).
-  W-WITHOUT-BALL: in updateControlled, `!owns && !incoming && justPressed W` sets
-  `gkRush=1.5` (FIFA "rush keeper out"). gkRush decays each frame in update(),
-  reset in resetKickoff, cleared on GK gain.
+  W-WITHOUT-BALL: in updateControlled, `!owns && !incoming`: a TAP of W sets
+  `gkRush=1.5`, and HOLDING W refreshes `gkRush` to ≥0.25 each frame (FIFA
+  hold-to-rush) so the keeper stays out instead of back-pedalling mid-charge.
+  gkRush decays each frame in update(), reset in resetKickoff, cleared on GK gain.
+  YO-YO FIX (added after "GK rushes horizontally then goes back as I approach"):
+  the rush window used to lapse while the attacker was still in the dead zone
+  just outside the box, so the keeper retreated to his line and then re-rushed
+  once the ball entered the box. Now (a) holding W keeps him committed, and (b)
+  the AUTO carrierThreat tracks a CENTRAL (|carrier.y-mid|<M(22)) opponent
+  carrier APPROACHING goal (carrier.vx sign toward own goal) up to ballDX<M(28)
+  — a bit beyond the box — so he holds his ground at the box edge until the 1v1
+  arrives rather than yo-yoing. (carrierThreat = carrierCentral && ballDX<M(28)
+  && (carrierApproaching || ballInBox).)
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each
