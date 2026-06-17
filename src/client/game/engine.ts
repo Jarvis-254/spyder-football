@@ -1861,10 +1861,17 @@ export class PitchKickGame {
   }
 
   private updateAwayCarrier(p: PlayerEntity, dt: number) {
-    // The keeper doesn't dribble out — he clears long upfield.
+    // The keeper doesn't dribble out — he CATCHES, holds the ball in his hands
+    // for a beat (so the save + gather reads on screen), then clears upfield.
     if (p.isGK) {
       this.steer(p, 0, 0, dt);
+      // Hold the caught ball in hands before distributing — without this the
+      // keeper booted it the instant he gathered, so a save looked like an
+      // immediate clearance (never a visible catch).
+      this.gkHoldTimer += dt;
+      if (this.gkHoldTimer < 1.1) return;
       if (this.cpuDecision > 0) return;
+      this.gkHoldTimer = 0;
       this.cpuDecision = 0.5;
       let best: PlayerEntity | null = null;
       let bestScore = -Infinity;
@@ -2133,6 +2140,10 @@ export class PitchKickGame {
         // tap in the rebound. The rush (if any) has done its job.
         this.stealProtect = Math.max(this.stealProtect, 1.1);
         this.gkRush = 0;
+        // Start the hold-in-hands clock fresh on a NEW catch so the keeper
+        // visibly gathers and holds the ball before he distributes (instead of
+        // booting it the instant he touches it with a stale timer).
+        if (best !== prev) this.gkHoldTimer = 0;
       }
       this.dribble(best);
       // Receiving a pass clears the kicker lock so play flows.

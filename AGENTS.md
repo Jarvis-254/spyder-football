@@ -326,6 +326,21 @@ game state yet (no Stores/queries for gameplay).
   straight back. Shots at/under 820 speed are still CAUGHT cleanly and held in
   hands (existing catch path). Shot speeds are 620+720*charge (620 untapped..1340
   full blast), so ~placed shots are caught, real blasts are parried.
+  AWAY-KEEPER HOLD BEFORE DISTRIBUTING (added after "I don't see anything that
+  changed — the keeper still immediately kicks the ball forward, even on the
+  weakest shot, and never catches"): the ROOT CAUSE the user was hitting — the
+  user attacks the AWAY goal, so the AWAY keeper makes the saves. Its
+  `updateAwayCarrier` GK branch booted the ball upfield the instant it owned the
+  ball (only gated by `cpuDecision`, which is usually already 0 on a fresh
+  catch), so every save looked like an immediate clearance and the catch/hold-in-
+  hands was never visible (and the parry/catch tuning was invisible too). Fix:
+  the away GK now runs the SAME hold as the home GK — `gkHoldTimer += dt;
+  if (gkHoldTimer < 1.1) return;` before distributing, so he visibly gathers and
+  HOLDS the caught ball in his hands (~1.1s, dribble() GK ball-in-hands anim)
+  before clearing. `gkHoldTimer` (shared, only one keeper holds at a time) is now
+  RESET to 0 in resolvePossession whenever a keeper FIRST gains the ball
+  (`if (best.isGK && best!==prev) gkHoldTimer=0`) so a stale timer from a prior
+  possession can't make him distribute instantly.
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each
