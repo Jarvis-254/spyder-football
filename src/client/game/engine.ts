@@ -99,6 +99,11 @@ export class PitchKickGame {
   private owner: PlayerEntity | null = null;
   private lastKicker: PlayerEntity | null = null;
   private kickerLock = 0;
+  /** The teammate our last pass is travelling toward (becomes the controlled
+   *  player). While the pass is in flight this player gets "ball gravity":
+   *  their run is biased to meet the ball so a mistimed arrow press doesn't
+   *  make them run away from it. Cleared once possession resolves. */
+  private passReceiver: PlayerEntity | null = null;
   private cpuDecision = 0;
   /** Protection window after winning the ball — can't be tackled. */
   private stealProtect = 0;
@@ -267,6 +272,7 @@ export class PitchKickGame {
     this.owner = null;
     this.lastKicker = null;
     this.kickerLock = 0;
+    this.passReceiver = null;
     this.stealProtect = 0;
     this.dispossessed = null;
     this.dispossessedTimer = 0;
@@ -673,15 +679,77 @@ export class PitchKickGame {
       if (this.keys.has('ArrowDown')) dy += 1;
       if (this.keys.has('ArrowLeft')) dx -= 1;
       if (this.keys.has('ArrowRight')) dx += 1;
+      const hasInput = dx !== 0 || dy !== 0;
 
-      const speed = this.keys.has('KeyE') ? SPRINT_SPEED : WALK_SPEED;
+      // Build the user's intended heading (unit vector, or zero).
+      let ix = 0;
+      let iy = 0;
+      if (hasInput) {
+        const l = len(dx, dy);
+        ix = dx / l;
+        iy = dy / l;
+      }
+
+      // FIFA-style "ball gravity": while OUR pass is in flight to this exact
+      // receiver, bias their run to meet the ball so a mistimed arrow press
+      // doesn't make them run away and miss it. The pull stays gentle while
+      // they're already on the ball's line (they keep their run), and grows
+      // strong as the ball nears or as they drift off its path (about to
+      // miss) — and with no arrow held it takes over completely.
+      let gravity = 0;
+      let gravAimX = 0;
+      let gravAimY = 0;
+      if (incoming && p === this.passReceiver) {
+        const bspeed = Math.hypot(this.ball.vx, this.ball.vy);
+        // Meeting point: the closest point on the ball's forward path to the
+        // player (where their run most naturally intersects it). For a slow
+        // ball, just aim straight at it.
+        let aimX = this.ball.x;
+        let aimY = this.ball.y;
+        if (bspeed > 40) {
+          const ux = this.ball.vx / bspeed;
+          const uy = this.ball.vy / bspeed;
+          const t = Math.max(0, (p.x - this.ball.x) * ux + (p.y - this.ball.y) * uy);
+          aimX = this.ball.x + ux * t;
+          aimY = this.ball.y + uy * t;
+        }
+        gravAimX = aimX - p.x;
+        gravAimY = aimY - p.y;
+        const offPath = len(gravAimX, gravAimY); // lateral miss distance
+        const ballDist = dist(p, this.ball);
+        // 0 when the ball is far (>250px), 1 when it's close (<60px).
+        const prox = clamp(1 - (ballDist - 60) / 190, 0, 1);
+        // 0 while on the ball's line (<10px), 1 once well off it (>70px).
+        const stray = clamp((offPath - 10) / 60, 0, 1);
+        gravity = hasInput
+          ? clamp(stray * (0.5 + 0.5 * prox) + 0.12, 0, 0.9)
+          : 1;
+      }
+
+      const speed = this.keys.has('KeyE')
+        ? SPRINT_SPEED
+        : hasInput
+          ? WALK_SPEED
+          : gravity > 0
+            ? RUN_SPEED
+            : WALK_SPEED;
+
+      let hx = ix;
+      let hy = iy;
+      if (gravity > 0) {
+        const gl = len(gravAimX, gravAimY);
+        const ax = gl > 1 ? gravAimX / gl : 0;
+        const ay = gl > 1 ? gravAimY / gl : 0;
+        hx = ix * (1 - gravity) + ax * gravity;
+        hy = iy * (1 - gravity) + ay * gravity;
+      }
 
       let tvx = 0;
       let tvy = 0;
-      if (dx !== 0 || dy !== 0) {
-        const l = len(dx, dy);
-        tvx = (dx / l) * speed;
-        tvy = (dy / l) * speed;
+      const hl = len(hx, hy);
+      if (hl > 0.001) {
+        tvx = (hx / hl) * speed;
+        tvy = (hy / hl) * speed;
       }
       this.steer(p, tvx, tvy, dt);
     }
@@ -874,6 +942,10 @@ export class PitchKickGame {
       this.afterKick(kicker);
       return;
     }
+
+    // Control follows your pass (FIFA-style), and the receiver gets "ball
+    // gravity" until they actually take possession (see updateControlled).
+    this.passReceiver = target;
 
     let aim: Vec;
     if (isThrough) {
@@ -1900,6 +1972,8 @@ export class PitchKickGame {
       // Receiving a pass clears the kicker lock so play flows.
       this.lastKicker = null;
       this.kickerLock = 0;
+      // The pass has been collected (or intercepted) — ball gravity ends.
+      this.passReceiver = null;
     }
   }
 

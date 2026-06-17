@@ -217,6 +217,19 @@ game state yet (no Stores/queries for gameplay).
   (old ~380 through band caused the skip). Through passes exclude the GK.
   No-target fallback knock also uses heldDir.
   Control follows YOUR pass to the receiver (user-initiated, FIFA-style).
+- BALL GRAVITY ON RECEPTION (added after "receiver runs away and misses the
+  pass"): passAssisted sets `this.passReceiver = target` (right after the
+  null-target check, so all branches share it); cleared in resolvePossession
+  (once possession resolves) and resetKickoff. In updateControlled's movement
+  `else` block, while `incoming && p === this.passReceiver`, the receiver's run
+  is biased to MEET the ball: aim = closest point on the ball's forward
+  velocity ray to the player (slow ball <40 → aim at ball directly). `gravity`
+  weight = (no arrow held → 1, full auto at RUN_SPEED) else
+  `clamp(stray*(0.5+0.5*prox)+0.12, 0, 0.9)` where prox rises as ball nears
+  (60..250px) and stray rises as player drifts off the ball's line (10..70px
+  lateral). Heading = lerp(userInput, autoAim, gravity). Net effect: keeps your
+  run when already on the ball's path, sticks to it when about to miss, takes
+  over fully when no direction is held — matches FIFA reception assist.
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each
