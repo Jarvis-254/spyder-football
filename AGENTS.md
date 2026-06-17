@@ -274,15 +274,19 @@ game state yet (no Stores/queries for gameplay).
   `gkRush=1.5`, and HOLDING W refreshes `gkRush` to ≥0.25 each frame (FIFA
   hold-to-rush) so the keeper stays out instead of back-pedalling mid-charge.
   gkRush decays each frame in update(), reset in resetKickoff, cleared on GK gain.
-  YO-YO FIX (added after "GK rushes horizontally then goes back as I approach"):
-  the rush window used to lapse while the attacker was still in the dead zone
-  just outside the box, so the keeper retreated to his line and then re-rushed
-  once the ball entered the box. Now (a) holding W keeps him committed, and (b)
-  the AUTO carrierThreat tracks a CENTRAL (|carrier.y-mid|<M(22)) opponent
-  carrier APPROACHING goal (carrier.vx sign toward own goal) up to ballDX<M(28)
-  — a bit beyond the box — so he holds his ground at the box edge until the 1v1
-  arrives rather than yo-yoing. (carrierThreat = carrierCentral && ballDX<M(28)
-  && (carrierApproaching || ballInBox).)
+  YO-YO FIX v2 (after "GK rushes too early while I'm far, then goes back as I
+  get closer"): the v1 attempt that committed the keeper EARLY (carrier within
+  M(28) and approaching) backfired — he bolted off his line while the attacker
+  was still way out, parked at the box edge (clamped), then back-pedalled toward
+  goal tracking the ball as the attacker finally entered the box. Fix: the AUTO
+  carrier rush now triggers ONLY once the carrier is genuinely CLOSE — within
+  M(13) of own goal (≈ penalty spot) AND central (|carrier.y-mid|<M(20)). Until
+  then the keeper just plays the angle (comeOut). Because the trigger is now
+  inside the box, the rush target (the ball, clamped to box edge M(16) / lateral
+  mid±M(14)) never makes him retreat — keeper and attacker converge as he comes
+  out to smother, and his bigger gather reach wins it. `carrierClose =
+  |carrier.x-ownGoalX|<M(13) && |carrier.y-mid|<M(20)`; loose-ball rush still
+  needs ballInBoxX && ballCentral. Holding W still overrides for a manual charge.
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each

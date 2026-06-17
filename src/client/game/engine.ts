@@ -1400,19 +1400,19 @@ export class PitchKickGame {
     // threat, so the keeper must hold his net and play the near post instead of
     // charging sideways and leaving the goal gaping.
     const ballCentral = Math.abs(by - mid) < M(18);
-    const ballInBox = ballInBoxX && ballCentral;
-    const looseClose = !this.owner && ballInBox;
-    // A central opponent CARRIER bearing down on goal (a 1v1): commit to come
-    // and smother even a little OUTSIDE the box, and stay committed while he
-    // approaches — otherwise the keeper charges out, his rush window lapses,
-    // and he back-pedals to his line in the dead zone before the box, which
-    // reads as "rushing then retreating for no reason".
-    const carrierCentral = !!carrier && Math.abs(carrier.y - mid) < M(22);
-    const carrierApproaching =
-      !!carrier && (sign > 0 ? carrier.vx < -15 : carrier.vx > 15);
-    const carrierThreat =
-      carrierCentral && ballDX < M(28) && (carrierApproaching || ballInBox);
-    const autoRush = (looseClose || carrierThreat) && !defenderOnBall;
+    const looseClose = !this.owner && ballInBoxX && ballCentral;
+    // An opponent CARRIER only triggers a rush once he's genuinely CLOSE —
+    // inside the box near the penalty spot — and central. Rushing earlier (when
+    // he's still way out) just left the keeper parked at the box edge, and then
+    // back-pedalling toward goal as the attacker finally arrived (the "rushed
+    // early then retreated" bug). Held until ~M13 he plays the angle instead,
+    // then comes straight OUT to smother — keeper and attacker converging, so
+    // he never moves backwards while the attacker advances.
+    const carrierClose =
+      !!carrier &&
+      Math.abs(carrier.x - ownGoalX) < M(13) &&
+      Math.abs(carrier.y - mid) < M(20);
+    const autoRush = (looseClose || carrierClose) && !defenderOnBall;
     const boxEdge = ownGoalX + sign * M(16); // don't sweep past the box
 
     if (manualRush || autoRush) {
@@ -1432,7 +1432,7 @@ export class PitchKickGame {
           : clamp(aimX, reachEdge, ownGoalX - 12);
       const ty = manualRush
         ? clamp(aimY, 20, FIELD_H - 20)
-        : clamp(aimY, goalTop - 28, goalBottom + 28);
+        : clamp(aimY, mid - M(14), mid + M(14));
       return { pos: { x: tx, y: ty }, speed: SPRINT_SPEED };
     }
 
