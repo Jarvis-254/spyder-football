@@ -306,6 +306,26 @@ game state yet (no Stores/queries for gameplay).
   the keeper holds his line instead of charging out past his own man and
   vacating the goal. `defenderOnBall` (mate within 64px of ball) still applies
   too. MANUAL W ignores both guards — explicit player command.
+  LESS-PERFECT POSITIONING + CATCH-vs-PARRY (added after "GK positioning is way
+  too perfect — every shot goes at the keeper, and he deflects every shot
+  straight back into the attacker instead of to a side; weak shots should be
+  simply caught and held"): three changes. (a) Angle-play `ty` now tracks only
+  ~72% of the ball's lateral angle (`mid + gy*f*0.72`) — he holds a touch more
+  central and can't magnetically cover both corners, so a well-placed shot into
+  the open corner can beat him. (b) Fast-ball gather reach trimmed from
+  CONTROL_DIST+18 to +12 (slow-ball +34 unchanged) so he doesn't gobble every
+  shot passing near him. (c) NEW `keeperParry(gk,ballSpeed)`: in resolvePossession,
+  before `owner=best`, if the keeper would gain a fast OPPONENT shot
+  (`best.isGK && best!==prev && (!prev||prev.team!==best.team) && ballSpeed>820`)
+  he can't hold it — instead PARRIES: ball velocity set mostly lateral toward the
+  NEARER touchline (`side = ball.y<mid?-1:1`, vy=side*speed*0.9) with an outward
+  component away from goal (vx=outSign*speed*0.5), small pop-up (vz=M(1.8)),
+  speed=clamp(ballSpeed*0.42,200,380); ball nudged off the keeper's body to that
+  side, `owner=null`, `ballFree=0.45` so it spills WIDE as a loose rebound (a
+  striker must run onto it) rather than sticking to his hands or rebounding
+  straight back. Shots at/under 820 speed are still CAUGHT cleanly and held in
+  hands (existing catch path). Shot speeds are 620+720*charge (620 untapped..1340
+  full blast), so ~placed shots are caught, real blasts are parried.
 - PASS-LANE OPENNESS (added after "passes go straight into the opponent"):
   receiver selection now also scores how OPEN the passing lane is, not just
   alignment+distance. For ground passes (short/through, NOT lofted long) each

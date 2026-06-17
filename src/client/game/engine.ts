@@ -1476,7 +1476,11 @@ export class PitchKickGame {
       sign > 0
         ? clamp(ownGoalX + gx * f, ownGoalX + 14, boxEdge)
         : clamp(ownGoalX + gx * f, boxEdge, ownGoalX - 14);
-    const ty = clamp(mid + gy * f, goalTop + 14, goalBottom - 14);
+    // Don't PERFECTLY mirror the ball's lateral angle — a real keeper holds a
+    // touch more central and can't cover both corners. Tracking only ~72% of
+    // the way means a well-placed shot into the open corner can beat him,
+    // rather than every shot flying straight at a magnetically-positioned GK.
+    const ty = clamp(mid + gy * f * 0.72, goalTop + 14, goalBottom - 14);
     // Hustle back into position when badly out of it, else glide.
     const here = { x: tx, y: ty };
     const speed = dist(p, here) > 90 ? RUN_SPEED : WALK_SPEED;
@@ -2043,7 +2047,7 @@ export class PitchKickGame {
       // is claimed (not left for an attacker to steal), and enough reach to
       // pull in / parry a shot they get across to.
       const reach = p.isGK
-        ? CONTROL_DIST + (ballSpeed < 320 ? 34 : 18)
+        ? CONTROL_DIST + (ballSpeed < 320 ? 34 : 12)
         : CONTROL_DIST;
       const d = dist(p, this.ball);
       if (d <= reach && d < bestD) {
@@ -2097,6 +2101,22 @@ export class PitchKickGame {
         // Clean receive (pass or loose ball) — short protection.
         this.stealProtect = 0.35;
       }
+    }
+
+    // KEEPER CATCH vs PARRY: a keeper can only gather a weak/placed shot
+    // cleanly into his hands. A fiercely-struck shot is too hot to hold — he
+    // gets a hand/body to it and PARRIES it away to the side (toward the
+    // nearer touchline), so the ball spills wide rather than sticking to his
+    // hands or rebounding straight back into the striker's path.
+    if (
+      best &&
+      best.isGK &&
+      best !== prev &&
+      (!prev || prev.team !== best.team) &&
+      ballSpeed > 820
+    ) {
+      this.keeperParry(best, ballSpeed);
+      return;
     }
 
     this.owner = best;
@@ -2158,6 +2178,37 @@ export class PitchKickGame {
     this.ball.vz = 0;
     this.ball.vx = owner.vx;
     this.ball.vy = owner.vy;
+  }
+
+  /** A keeper can't cleanly hold a fiercely-struck shot. He gets a hand/body
+   *  to it and PARRIES it away to the side (toward the nearer touchline), so
+   *  the ball spills WIDE and away from goal — never sticking to his hands and
+   *  never rebounding straight back into the striker. */
+  private keeperParry(gk: PlayerEntity, ballSpeed: number) {
+    const outSign = gk.team === 'home' ? 1 : -1; // away from own goal
+    const mid = FIELD_H / 2;
+    // Spill toward the NEARER touchline so the rebound goes wide, not central.
+    const side = this.ball.y < mid ? -1 : 1;
+    const speed = clamp(ballSpeed * 0.42, 200, 380);
+    // Mostly lateral with an outward component — the ball squirts off to the
+    // side and away from goal.
+    this.ball.vx = outSign * speed * 0.5;
+    this.ball.vy = side * speed * 0.9;
+    this.ball.vz = M(1.8);
+    this.ball.z = Math.max(this.ball.z, 0.4);
+    // Nudge the ball off the keeper's body to that side so it doesn't re-gather
+    // on the same frame.
+    this.ball.x = gk.x + outSign * (gk.r + this.ball.r + 5);
+    this.ball.y += side * (gk.r + 4);
+    // Keeper throws himself toward the shot.
+    gk.facing = { x: outSign, y: side };
+    // Nobody owns the parried ball; lock out an instant re-gather so it spills
+    // clear (a striker has to run onto the loose rebound).
+    this.owner = null;
+    this.ballFree = 0.45;
+    this.lastKicker = null;
+    this.kickerLock = 0;
+    this.passReceiver = null;
   }
 
   /** A keeper holding the ball in his hands may not carry it out of his own
