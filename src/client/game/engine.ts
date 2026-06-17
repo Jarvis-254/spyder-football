@@ -1391,9 +1391,15 @@ export class PitchKickGame {
     // abandon the goal — only rush when it's genuinely the keeper's to claim.
     const defenderOnBall = mates.some((m) => dist(m, this.ball) < 64);
     const manualRush = p.team === 'home' && this.gkRush > 0;
-    const ballInBoxX = ballDX < M(18); // ~ edge of the penalty area
-    const looseClose = !this.owner && ballInBoxX;
-    const carrierThreat = !!carrier && ballInBoxX;
+    const ballInBoxX = ballDX < M(18); // ~ edge of the penalty area (depth)
+    // Only commit to a rush when the ball is also CENTRAL — within the penalty
+    // area's width. A ball out on the flank is near the goal LINE but no direct
+    // threat, so the keeper must hold his net and play the near post instead of
+    // charging sideways and leaving the goal gaping.
+    const ballCentral = Math.abs(by - mid) < M(18);
+    const ballInBox = ballInBoxX && ballCentral;
+    const looseClose = !this.owner && ballInBox;
+    const carrierThreat = !!carrier && ballInBox;
     const autoRush = (looseClose || carrierThreat) && !defenderOnBall;
     const boxEdge = ownGoalX + sign * M(16); // don't sweep past the box
 

@@ -246,8 +246,12 @@ game state yet (no Stores/queries for gameplay).
   Speed RUN_SPEED if >90px away else WALK_SPEED. Used via offBallPlan
   (`if (p.isGK) return this.keeperPlan(p)`).
   (2) SWEEPER/AGGRESSION RUSH — auto-rush when a loose ball (no owner) or an
-  OPPONENT carrier is inside the box X (ballDX<M(18)) AND no own defender is
-  within 64px of the ball; also manual rush when home GK + `gkRush>0`. Rush
+  OPPONENT carrier is inside the box AND no own defender is within 64px of the
+  ball; also manual rush when home GK + `gkRush>0`. "In the box" requires BOTH
+  depth (ballDX<M(18)) AND centrality (|by-mid|<M(18)) — without the centrality
+  gate the keeper charged sideways out of his net on FLANK attacks (ball near
+  the goal line in X but far out wide), leaving the goal gaping. Flank balls now
+  keep him home playing the angle/near post. Rush
   charges at SPRINT_SPEED toward the ball lead-point (ball + vel*0.12), clamped
   to the box. Handles 1v1: keeper comes out to smother.
   (3) PICK UP LOOSE/SLOW BALL — in resolvePossession the GK's gather reach is
