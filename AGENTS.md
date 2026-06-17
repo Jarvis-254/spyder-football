@@ -304,8 +304,30 @@ game state yet (no Stores/queries for gameplay).
   flicker), short leaning tufts lighter/darker than turf, only visible
   cells visited, near tufts larger via proj scale.
 - Goals are REAL standing frames: `goalGeom()` posts at (0|FIELD_W,
-  goalTop/goalBottom), postH=58*s, net mesh + back structure drawn BEFORE
+  goalTop/goalBottom), postH=M(2.44)*s, net + back structure drawn BEFORE
   players (`drawGoalBack`), posts+crossbar AFTER (`drawGoalFront`).
+- FULL ENCLOSED NET (`drawGoalBack`): four wire panels via `netMesh(bf,bn,tf,
+  tn,nu,nv,disp?)` (+`bilerp` of 4 screen corners) — back panel + roof +
+  far-side + near-side, net sloping to 0.82 height at the back. HIT RIPPLE:
+  engine `netRipple{left,right}` (0..1, decays ~0.6/s) passed in Scene;
+  `startCelebration` bumps the scored side to 1; back panel displaces outward
+  (sign per side) + downward with a sin(πu)·sin(πv) bell × cos wobble
+  (performance.now()), pinned at edges.
+- GEOMETRY FIX (user: posts/boxes floated off the field line): the projection
+  maps a CONSTANT-X field line (goal line, halfway, box depth-edge) to a BOWED
+  curve, but they were drawn as straight 2-pt chords while posts sit at true
+  proj positions → ~64px float. `projPathSmooth(pts,close,steps=12)`
+  subdivides each segment so those lines follow the bow; used for the field
+  outline, halfway line, and both boxes. Posts/boxes now sit ON the line.
+- GOAL CELEBRATION (engine): scoring no longer instantly resets. `handleGoals`
+  → `startCelebration(scoringTeam,msg,nextKickoff,side)`: settles the ball in
+  the net (x = ±M(1.4) past the goal line), bumps `netRipple`, sets
+  `celebration=4`s + `celebrateTeam`/`pendingKickoff`/`scorer` (=lastKicker if
+  same team), flags non-GK players `celebrating=true`. `update()` runs
+  `updateCelebration` (scorer wheels to the near corner, M(16) in; teammates
+  mob behind) + `updateCamera` while frozen, then `resetKickoff(pendingKickoff)`
+  when it expires. `drawHumanoid` raises BOTH arms above the head when
+  `p.celebrating`. `PlayerEntity.celebrating?:boolean` in types.ts.
 - Stadium dressing: gradient sky, deterministic crowd dots, PITCHKICK
   hoarding strip above far touchline.
 - Ball + players depth-sorted together into one draw list (ball is a

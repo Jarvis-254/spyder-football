@@ -48,6 +48,8 @@ export interface Scene {
   players: { p: PlayerEntity; kit: Kit }[];
   controlled: PlayerEntity | null;
   switchHint: PlayerEntity | null;
+  /** Per-side net ripple intensity (0..1); bulges/wobbles the net when hit. */
+  netRipple: { left: number; right: number };
 }
 
 export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene) {
@@ -63,8 +65,8 @@ export function renderScene(ctx: CanvasRenderingContext2D, scene: Scene) {
   drawCrowd(ctx, scene.camX);
 
   drawPitch(ctx, scene.camX);
-  drawGoalBack(ctx, 'left');
-  drawGoalBack(ctx, 'right');
+  drawGoalBack(ctx, 'left', scene.netRipple.left);
+  drawGoalBack(ctx, 'right', scene.netRipple.right);
 
   // Depth-sort all drawables (players + ball) so near covers far.
   type Drawable = { depth: number; draw: () => void };
@@ -140,6 +142,33 @@ function projPath(ctx: CanvasRenderingContext2D, pts: Vec[], close = true) {
   if (close) ctx.closePath();
 }
 
+/**
+ * Like `projPath`, but subdivides each segment so depth-running edges follow
+ * the projection's vertical bow instead of cutting a straight screen chord.
+ * The projection maps a constant-x field line (goal line, halfway line, box
+ * edge) to a CURVE — drawing it as a 2-point chord makes posts/boxes that are
+ * placed at their true projected positions appear to float off the line.
+ */
+function projPathSmooth(
+  ctx: CanvasRenderingContext2D,
+  pts: Vec[],
+  close = true,
+  steps = 12,
+) {
+  const segCount = close ? pts.length : pts.length - 1;
+  const dense: Vec[] = [];
+  for (let i = 0; i < segCount; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      dense.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+    }
+  }
+  if (!close) dense.push(pts[pts.length - 1]);
+  projPath(ctx, dense, close);
+}
+
 function drawPitch(ctx: CanvasRenderingContext2D, camX: number) {
   // Grass apron slightly beyond the lines, with a depth gradient (darker
   // toward the far line for an under-lights TV look).
@@ -193,8 +222,10 @@ function drawPitch(ctx: CanvasRenderingContext2D, camX: number) {
   ctx.lineWidth = 2.5;
   ctx.lineJoin = 'round';
 
-  // Touchlines + goal lines.
-  projPath(ctx, [
+  // Touchlines + goal lines. The goal lines run in depth (constant x) so they
+  // must be sampled to follow the projection's bow — otherwise the posts and
+  // boxes (drawn at true projected positions) float off a straight chord.
+  projPathSmooth(ctx, [
     { x: 0, y: 0 },
     { x: FIELD_W, y: 0 },
     { x: FIELD_W, y: FIELD_H },
@@ -202,8 +233,8 @@ function drawPitch(ctx: CanvasRenderingContext2D, camX: number) {
   ]);
   ctx.stroke();
 
-  // Halfway line.
-  projPath(ctx, [
+  // Halfway line (constant x → sampled).
+  projPathSmooth(ctx, [
     { x: FIELD_W / 2, y: 0 },
     { x: FIELD_W / 2, y: FIELD_H },
   ], false);
@@ -225,14 +256,14 @@ function drawPitch(ctx: CanvasRenderingContext2D, camX: number) {
   for (const left of [true, false]) {
     const gx = left ? 0 : FIELD_W;
     const dir = left ? 1 : -1;
-    projPath(ctx, [
+    projPathSmooth(ctx, [
       { x: gx, y: by },
       { x: gx + dir * boxW, y: by },
       { x: gx + dir * boxW, y: by + boxH },
       { x: gx, y: by + boxH },
     ], false);
     ctx.stroke();
-    projPath(ctx, [
+    projPathSmooth(ctx, [
       { x: gx, y: sy },
       { x: gx + dir * sixW, y: sy },
       { x: gx + dir * sixW, y: sy + sixH },
@@ -360,44 +391,104 @@ function goalGeom(side: 'left' | 'right') {
   return { far, near, backFar, backNear, postH };
 }
 
-function drawGoalBack(ctx: CanvasRenderingContext2D, side: 'left' | 'right') {
+type Pt = { x: number; y: number };
+
+/** Bilinear blend of four screen corners (u: far→near, v: bottom→top). */
+function bilerp(
+  c00: Pt, c10: Pt, c01: Pt, c11: Pt, u: number, v: number,
+): Pt {
+  const bx =
+    c00.x * (1 - u) * (1 - v) + c10.x * u * (1 - v) +
+    c01.x * (1 - u) * v + c11.x * u * v;
+  const by =
+    c00.y * (1 - u) * (1 - v) + c10.y * u * (1 - v) +
+    c01.y * (1 - u) * v + c11.y * u * v;
+  return { x: bx, y: by };
+}
+
+/** Draw a quad as a wire mesh, optionally displacing each vertex (for ripple).
+ *  Corners: bottom-far, bottom-near, top-far, top-near. */
+function netMesh(
+  ctx: CanvasRenderingContext2D,
+  bf: Pt, bn: Pt, tf: Pt, tn: Pt,
+  nu: number, nv: number,
+  disp?: (u: number, v: number) => Pt,
+) {
+  const at = (u: number, v: number) => {
+    const p = bilerp(bf, bn, tf, tn, u, v);
+    if (disp) {
+      const d = disp(u, v);
+      p.x += d.x;
+      p.y += d.y;
+    }
+    return p;
+  };
+  for (let i = 0; i <= nu; i++) {
+    const u = i / nu;
+    ctx.beginPath();
+    for (let j = 0; j <= nv; j++) {
+      const p = at(u, j / nv);
+      j === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+  for (let j = 0; j <= nv; j++) {
+    const v = j / nv;
+    ctx.beginPath();
+    for (let i = 0; i <= nu; i++) {
+      const p = at(i / nu, v);
+      i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+  }
+}
+
+function drawGoalBack(
+  ctx: CanvasRenderingContext2D,
+  side: 'left' | 'right',
+  ripple: number,
+) {
   const { far, near, backFar, backNear, postH } = goalGeom(side);
 
-  // Net: back panel + side panels, simple mesh.
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-  ctx.lineWidth = 1;
+  // Front frame corners (on the goal line) and back frame corners. The net
+  // slopes DOWN at the back (0.82 of the front height) like a real goal.
+  const fBot = { x: far.x, y: far.y };
+  const fTop = { x: far.x, y: far.y - postH(far.s) };
+  const nBot = { x: near.x, y: near.y };
+  const nTop = { x: near.x, y: near.y - postH(near.s) };
+  const bfBot = { x: backFar.x, y: backFar.y };
+  const bfTop = { x: backFar.x, y: backFar.y - postH(backFar.s) * 0.82 };
+  const bnBot = { x: backNear.x, y: backNear.y };
+  const bnTop = { x: backNear.x, y: backNear.y - postH(backNear.s) * 0.82 };
 
-  const meshSteps = 5;
-  // Back panel verticals.
-  for (let i = 0; i <= meshSteps; i++) {
-    const t = i / meshSteps;
-    const bx = backFar.x + (backNear.x - backFar.x) * t;
-    const by = backFar.y + (backNear.y - backFar.y) * t;
-    const bh = postH(backFar.s + (backNear.s - backFar.s) * t) * 0.82;
-    ctx.beginPath();
-    ctx.moveTo(bx, by);
-    ctx.lineTo(bx, by - bh);
-    ctx.stroke();
-  }
-  // Back panel horizontals.
-  for (let i = 0; i <= 4; i++) {
-    const t = i / 4;
-    ctx.beginPath();
-    ctx.moveTo(backFar.x, backFar.y - postH(backFar.s) * 0.82 * t);
-    ctx.lineTo(backNear.x, backNear.y - postH(backNear.s) * 0.82 * t);
-    ctx.stroke();
-  }
-  // Side panels (top diagonals from posts to back).
-  ctx.beginPath();
-  ctx.moveTo(far.x, far.y - postH(far.s));
-  ctx.lineTo(backFar.x, backFar.y - postH(backFar.s) * 0.82);
-  ctx.moveTo(near.x, near.y - postH(near.s));
-  ctx.lineTo(backNear.x, backNear.y - postH(backNear.s) * 0.82);
-  ctx.moveTo(far.x, far.y);
-  ctx.lineTo(backFar.x, backFar.y);
-  ctx.moveTo(near.x, near.y);
-  ctx.lineTo(backNear.x, backNear.y);
-  ctx.stroke();
+  // Ripple: bulge the back panel outward (away from the pitch) and wobble it
+  // for a moment after the ball hits. Pinned at the frame edges (sin shape).
+  const out = side === 'left' ? -1 : 1;
+  const tnow = performance.now() / 1000;
+  const amp = ripple * 16;
+  const backDisp = ripple > 0.001
+    ? (u: number, v: number) => {
+        const shape = Math.sin(Math.PI * u) * Math.sin(Math.PI * Math.min(1, v + 0.15));
+        const wob = Math.cos(tnow * 26 - u * 4) * 0.5 + 0.6;
+        const k = amp * shape * wob;
+        return { x: out * k, y: k * 0.35 };
+      }
+    : undefined;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.30)';
+  ctx.lineWidth = 1;
+  ctx.lineJoin = 'round';
+
+  // Back panel (the one that ripples).
+  netMesh(ctx, bfBot, bnBot, bfTop, bnTop, 6, 4, backDisp);
+  // Roof panel (crossbar → back-top).
+  netMesh(ctx, fTop, nTop, bfTop, bnTop, 5, 3);
+  // Far side panel (far post → back-far).
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+  netMesh(ctx, fBot, bfBot, fTop, bfTop, 3, 4);
+  // Near side panel (near post → back-near) — closest to camera, brighter.
+  ctx.strokeStyle = 'rgba(255,255,255,0.34)';
+  netMesh(ctx, nBot, bnBot, nTop, bnTop, 3, 4);
 }
 
 function drawGoalFront(ctx: CanvasRenderingContext2D, side: 'left' | 'right') {
@@ -670,11 +761,27 @@ function drawHumanoid(
   ctx.stroke();
 
   // Arms (counter-swing). Far arm behind torso, near arm in front.
+  const celebrating = !!p.celebrating && !kicking;
   const armSwing = kicking ? 6 : -swing * 5;
   const drawArm = (dir: number, swingAmt: number) => {
     ctx.strokeStyle = kit.sleeve;
     ctx.lineWidth = 2.5; // ≈0.10m — a real arm, not a tube
     ctx.lineCap = 'round';
+    if (celebrating) {
+      // Both arms thrown up above the head, with a little jubilant sway.
+      const sway = Math.sin(p.animPhase * 2) * 1.2;
+      const handX = dir * 5 + sway;
+      const handY = headY + bob - 7;
+      ctx.beginPath();
+      ctx.moveTo(dir * 4.8, shoulderY + bob + 2);
+      ctx.quadraticCurveTo(dir * 6.5, shoulderY + bob - 6, handX, handY);
+      ctx.stroke();
+      ctx.fillStyle = p.skin;
+      ctx.beginPath();
+      ctx.arc(handX, handY, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+      return;
+    }
     ctx.beginPath();
     ctx.moveTo(dir * 4.8, shoulderY + bob + 2);
     ctx.quadraticCurveTo(

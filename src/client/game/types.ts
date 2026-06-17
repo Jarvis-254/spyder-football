@@ -27,6 +27,8 @@ export interface PlayerEntity {
   num: number;
   /** Surname, shown in the FIFA-style selected-player indicator. */
   name: string;
+  /** > 0 while playing the goal-celebration pose (arms raised). */
+  celebrating?: boolean;
 }
 
 export interface HudState {

@@ -123,6 +123,16 @@ export class PitchKickGame {
   private message = '';
   private messageTimer = 0;
   private freeze = 0;
+  /** Goal celebration: holds play while the ball sits in the net and the
+   *  scoring side celebrates, before the restart. */
+  private celebration = 0;
+  private celebrateTeam: Team | null = null;
+  /** Which side kicks off once the celebration ends. */
+  private pendingKickoff: Team | null = null;
+  /** The player who scored (last kicker of the scoring team), runs off ahead. */
+  private scorer: PlayerEntity | null = null;
+  /** Per-side net ripple intensity (0..1), decays after a ball hits the net. */
+  private netRipple = { left: 0, right: 0 };
   /** Attackers who were in an offside position at the instant of the last
    *  pass. If one of them is the next teammate to touch the ball, the flag is
    *  raised (FIFA: offside is only penalised when the player gets involved). */
@@ -236,6 +246,7 @@ export class PitchKickGame {
       p.y = p.anchor.y;
       p.vx = p.vy = 0;
       p.kickTimer = 0;
+      p.celebrating = false;
       p.facing = { x: p.team === 'home' ? 1 : -1, y: 0 };
     }
 
@@ -271,6 +282,10 @@ export class PitchKickGame {
     this.tackleCooldown = 0;
     this.jostle = 0;
     this.freeze = 0.9;
+    this.celebration = 0;
+    this.celebrateTeam = null;
+    this.pendingKickoff = null;
+    this.scorer = null;
   }
 
   private setMessage(msg: string, secs: number) {
@@ -391,6 +406,22 @@ export class PitchKickGame {
     }
     for (const p of [...this.homePlayers, ...this.awayPlayers]) {
       if (p.kickTimer > 0) p.kickTimer -= dt;
+    }
+    if (this.netRipple.left > 0) this.netRipple.left = Math.max(0, this.netRipple.left - dt * 0.6);
+    if (this.netRipple.right > 0) this.netRipple.right = Math.max(0, this.netRipple.right - dt * 0.6);
+
+    // Goal celebration: hold play, let the ball sit in the net and the scorers
+    // celebrate, then restart with the conceding side kicking off.
+    if (this.celebration > 0) {
+      this.celebration -= dt;
+      this.updateCelebration(dt);
+      this.updateCamera(dt);
+      this.justPressed = [];
+      this.justReleased = [];
+      if (this.celebration <= 0 && this.pendingKickoff) {
+        this.resetKickoff(this.pendingKickoff);
+      }
+      return;
     }
 
     if (this.freeze > 0) {
@@ -1971,6 +2002,7 @@ export class PitchKickGame {
   }
 
   private handleGoals() {
+    if (this.celebration > 0) return;
     const inMouth = this.ball.y > goalTop && this.ball.y < goalBottom;
     if (!inMouth) return;
     // Over the bar — a ball higher than the crossbar (2.44 m) isn't a goal.
@@ -1978,12 +2010,67 @@ export class PitchKickGame {
 
     if (this.ball.x <= 2) {
       this.awayScore += 1;
-      this.setMessage(`${this.awayTeam.name.toUpperCase()} SCORE`, 1.6);
-      this.resetKickoff('home');
+      this.startCelebration(
+        'away',
+        `${this.awayTeam.name.toUpperCase()} SCORE`,
+        'home',
+        'left',
+      );
     } else if (this.ball.x >= FIELD_W - 2) {
       this.homeScore += 1;
-      this.setMessage('G O A L !', 1.6);
-      this.resetKickoff('away');
+      this.startCelebration('home', 'G O A L !', 'away', 'right');
+    }
+  }
+
+  /** Kick off the goal-celebration sequence: settle the ball in the net,
+   *  ripple the net, and send the scoring side off celebrating. */
+  private startCelebration(
+    scoringTeam: Team,
+    msg: string,
+    nextKickoff: Team,
+    side: 'left' | 'right',
+  ) {
+    const CELEBRATION_SECS = 4;
+    this.celebration = CELEBRATION_SECS;
+    this.celebrateTeam = scoringTeam;
+    this.pendingKickoff = nextKickoff;
+    this.setMessage(msg, CELEBRATION_SECS);
+    this.netRipple[side] = 1;
+
+    // Nestle the ball into the back of the net so the strike clearly counts.
+    this.ball.vx = this.ball.vy = this.ball.vz = 0;
+    this.ball.z = 0;
+    this.ball.x = side === 'left' ? -M(1.4) : FIELD_W + M(1.4);
+    this.ball.y = clamp(this.ball.y, goalTop + 14, goalBottom - 14);
+
+    // The scorer is the scoring side's last kicker; teammates mob them.
+    this.scorer =
+      this.lastKicker && this.lastKicker.team === scoringTeam
+        ? this.lastKicker
+        : null;
+    const team = scoringTeam === 'home' ? this.homePlayers : this.awayPlayers;
+    for (const p of team) if (!p.isGK) p.celebrating = true;
+    this.owner = null;
+  }
+
+  /** Animate the celebrating players: the scorer wheels away toward the corner
+   *  by the goal, arms aloft, and teammates chase to mob them. */
+  private updateCelebration(dt: number) {
+    if (!this.celebrateTeam) return;
+    const team = this.celebrateTeam === 'home' ? this.homePlayers : this.awayPlayers;
+    const scoredRight = this.celebrateTeam === 'home';
+    const cornerX = scoredRight ? FIELD_W - M(16) : M(16);
+    const cornerY = FIELD_H * 0.82;
+    for (const p of team) {
+      if (!p.celebrating) continue;
+      let tx = cornerX;
+      let ty = cornerY;
+      if (this.scorer && p !== this.scorer) {
+        // Teammates converge just behind the scorer.
+        tx = this.scorer.x + (scoredRight ? -34 : 34);
+        ty = this.scorer.y - 6;
+      }
+      this.moveToward(p, { x: tx, y: ty }, RUN_SPEED * 0.62, dt);
     }
   }
 
@@ -2005,6 +2092,7 @@ export class PitchKickGame {
       })),
       controlled: this.controlled,
       switchHint: this.switchHint,
+      netRipple: this.netRipple,
     });
   }
 }
