@@ -471,6 +471,7 @@ export class PitchKickGame {
     this.updateHomeTeammates(dt);
     this.updateAwayTeam(dt);
     this.separatePlayers();
+    this.constrainKeeperWithBall();
     this.updateJostle(dt);
     this.resolvePossession();
     this.updateBall(dt);
@@ -1223,6 +1224,10 @@ export class PitchKickGame {
     // turf so it leaves the ground cleanly on a lofted kick.
     this.ball.vz = loft;
     if (loft > 0) this.ball.z = Math.max(this.ball.z, 0.5);
+    // A flat (non-lofted) release travels on the ground — drop the ball to the
+    // turf in case it was elevated (e.g. just thrown/rolled out of the keeper's
+    // hands, where it was held at chest height).
+    else this.ball.z = 0;
     this.afterKick(kicker);
   }
 
@@ -2119,13 +2124,20 @@ export class PitchKickGame {
   }
 
   private dribble(owner: PlayerEntity) {
-    // A keeper holds the ball in his HANDS at his chest — glued to his body,
-    // dead still. This stops a saved shot from squirting out in front (toward
-    // the onrushing striker) and being tapped back in.
+    // A keeper SCOOPS the ball up into his HANDS, held at chest height just in
+    // front of his body. The ball rises from the ground (a quick gather/pickup
+    // animation) and is glued there — it never squirts out in front toward an
+    // onrushing striker. Held at M(0.95) (below CONTROL_HEIGHT so he keeps it).
     if (owner.isGK) {
-      this.ball.x += (owner.x - this.ball.x) * 0.6;
-      this.ball.y += (owner.y - this.ball.y) * 0.6;
-      this.ball.z = 0;
+      const hold = owner.r + this.ball.r + 3;
+      const tx = owner.x + owner.facing.x * hold;
+      const ty = owner.y + owner.facing.y * hold;
+      const handZ = M(0.95);
+      // Lerp toward the hand position + height: the ball arcs up off the grass
+      // into the keeper's grasp, reading as a clean catch/pickup.
+      this.ball.x += (tx - this.ball.x) * 0.4;
+      this.ball.y += (ty - this.ball.y) * 0.4;
+      this.ball.z += (handZ - this.ball.z) * 0.35;
       this.ball.vz = 0;
       this.ball.vx = owner.vx;
       this.ball.vy = owner.vy;
@@ -2146,6 +2158,28 @@ export class PitchKickGame {
     this.ball.vz = 0;
     this.ball.vx = owner.vx;
     this.ball.vy = owner.vy;
+  }
+
+  /** A keeper holding the ball in his hands may not carry it out of his own
+   *  penalty area — clamp him (and the held ball) inside the box. Real
+   *  football: leaving the area with the ball in hand is a handball. */
+  private constrainKeeperWithBall() {
+    const gk = this.owner;
+    if (!gk || !gk.isGK) return;
+    const ownGoalX = gk.team === 'home' ? 0 : FIELD_W;
+    const depth = M(16.5); // penalty area is 16.5 m deep
+    const halfW = M(20.16); // ...and 40.32 m wide
+    const mid = FIELD_H / 2;
+    if (gk.team === 'home') {
+      gk.x = clamp(gk.x, gk.r, ownGoalX + depth);
+    } else {
+      gk.x = clamp(gk.x, ownGoalX - depth, FIELD_W - gk.r);
+    }
+    gk.y = clamp(
+      gk.y,
+      Math.max(gk.r, mid - halfW),
+      Math.min(FIELD_H - gk.r, mid + halfW),
+    );
   }
 
   /** Soft circle-vs-circle separation so players can't stand inside each other. */

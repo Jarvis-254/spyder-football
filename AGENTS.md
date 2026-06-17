@@ -266,10 +266,21 @@ game state yet (no Stores/queries for gameplay).
   home GK gains possession he becomes `this.controlled` (auto-switch like any
   outfielder). On any GK gain we set stealProtect=1.1 (secure catch, can't be
   immediately re-stolen) and clear gkRush.
-  (5) GK HOLDS BALL AT BODY — `dribble(owner)` has a GK branch at the top:
-  ball snaps to the keeper's body (lerp 0.6), z/vz zeroed, velocity = owner's —
-  so a saved/caught ball stays glued instead of being pushed forward onto the
-  onrushing shooter (the old deflect-onto-shooter bug).
+  (5) GK HOLDS BALL IN HANDS — `dribble(owner)` GK branch: the ball SCOOPS up
+  into the keeper's hands — lerped to a point just in front of his body (facing
+  dir, owner.r+ball.r+3) and lifted to z=M(0.95) (below CONTROL_HEIGHT M(1.25)
+  so he keeps possession). The z lerp (0.35/frame from the grass) reads as a
+  quick gather/pickup animation; render draws the ball raised by z*scale so it
+  sits at chest/hand height, not stuck at the feet. Velocity = owner's so it
+  travels with him. Replaces the old "glued at feet, z=0" hold (which looked
+  like the ball was stuck to his boots). On RELEASE, kickBallToward now zeroes
+  ball.z for any non-lofted (flat/ground) kick so a thrown/rolled distribution
+  doesn't float down from chest height.
+  KEEPER BOXED WHILE HOLDING — new `constrainKeeperWithBall()` (called after
+  separatePlayers): while `owner` is a GK, clamp him to his own penalty area
+  (depth M(16.5) from goal line, width mid±M(20.16)) so he can't carry the ball
+  in hand out of the box (real-football handball). Only applies while he owns
+  the ball; a ball-less keeper can still rush out.
   W-WITHOUT-BALL: in updateControlled, `!owns && !incoming`: a TAP of W sets
   `gkRush=1.5`, and HOLDING W refreshes `gkRush` to ≥0.25 each frame (FIFA
   hold-to-rush) so the keeper stays out instead of back-pedalling mid-charge.
