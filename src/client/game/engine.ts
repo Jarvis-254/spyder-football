@@ -2167,9 +2167,11 @@ export class PitchKickGame {
         // booting it the instant he touches it with a stale timer).
         if (best !== prev) {
           this.gkHoldTimer = 0;
-          // An off-centre catch is a diving save — play the dive pose toward it.
+          // A catch is only a DIVING save if the ball was genuinely beyond his
+          // standing reach — a ball gathered near his body is taken standing,
+          // so he doesn't dive on every shot close to him.
           const off = this.ball.y - best.y;
-          if (Math.abs(off) > 14 && (best.diveTimer ?? 0) <= 0) {
+          if (Math.abs(off) > M(1.7) && (best.diveTimer ?? 0) <= 0) {
             this.triggerKeeperDive(best, Math.sign(off));
           }
         }
@@ -2269,8 +2271,10 @@ export class PitchKickGame {
       const d = dist(gk, this.ball);
       if (d > 95) continue; // react as it arrives in his vicinity
       const off = this.ball.y - gk.y;
-      // Hit basically at him → no dive needed, he gathers standing.
-      if (Math.abs(off) < 12) continue;
+      // Within standing reach (a step + arm) → no dive needed, he gathers
+      // standing. Only a ball genuinely beyond his standing reach makes him
+      // throw himself across — so he doesn't dive on every shot near him.
+      if (Math.abs(off) < M(1.7)) continue;
       this.triggerKeeperDive(gk, Math.sign(off));
     }
   }
@@ -2293,6 +2297,9 @@ export class PitchKickGame {
   private keeperParry(gk: PlayerEntity, ballSpeed: number) {
     const outSign = gk.team === 'home' ? 1 : -1; // away from own goal
     const mid = FIELD_H / 2;
+    // How far off-centre the shot came in (before we reposition the ball) —
+    // determines whether the parry is a dive or a standing block.
+    const incomingOff = this.ball.y - gk.y;
     // Spill toward the NEARER touchline so the rebound goes wide, not central.
     const side = this.ball.y < mid ? -1 : 1;
     const speed = clamp(ballSpeed * 0.42, 200, 380);
@@ -2306,9 +2313,13 @@ export class PitchKickGame {
     // on the same frame.
     this.ball.x = gk.x + outSign * (gk.r + this.ball.r + 5);
     this.ball.y += side * (gk.r + 4);
-    // Keeper throws himself toward the shot — full dive pose if he had to reach.
+    // Keeper throws himself toward the shot — but only a true DIVE if the ball
+    // came in beyond his standing reach. A fierce shot straight at him is parried
+    // standing (no dive), so he doesn't dive on every save.
     gk.facing = { x: outSign, y: side };
-    if ((gk.diveTimer ?? 0) <= 0) this.triggerKeeperDive(gk, side);
+    if (Math.abs(incomingOff) > M(1.7) && (gk.diveTimer ?? 0) <= 0) {
+      this.triggerKeeperDive(gk, Math.sign(incomingOff));
+    }
     // Nobody owns the parried ball; lock out an instant re-gather so it spills
     // clear (a striker has to run onto the loose rebound).
     this.owner = null;

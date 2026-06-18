@@ -381,7 +381,15 @@ game state yet (no Stores/queries for gameplay).
     toward a keeper's own goal, within M(20) of the goal line and within 95px of
     the keeper but >12px off-centre, he dives toward it — EVEN shots he won't
     reach (visible reaction, beaten cleanly). Dives also fire on off-centre
-    catches (resolvePossession) and on every parry (`keeperParry`).
+    catches (resolvePossession) and parries (`keeperParry`).
+    DIVE-ONLY-WHEN-NEEDED (added after "the GK shouldn't dive on every shot when
+    the ball is close to him and he doesn't need to dive to reach"): all three
+    dive triggers now require the ball to be genuinely beyond standing reach —
+    lateral offset `Math.abs(off) > M(1.7)` (≈36px) instead of the old 12/14px.
+    A ball within ~1.7m of the keeper is gathered/parried STANDING (no dive); only
+    a ball wider than that makes him throw himself across. (updateKeeperReactions
+    uses live `ball.y - gk.y`; resolvePossession catch branch same; keeperParry
+    captures `incomingOff` BEFORE it repositions the ball, dives toward it.)
   - DIVE RENDER (drawHumanoid): `diveLayout` (eased 0..1 body commitment) and
     `diveAirborne` (sin arc) drive a body translate+rotate toward diveDir, an
     upward lift, a fading/offset shadow, and overhead reaching arms (reuses the
