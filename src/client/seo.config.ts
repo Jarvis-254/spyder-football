@@ -23,10 +23,10 @@ export interface SeoConfig {
   formatTitle: (title?: string) => string;
 }
 
-const siteName = 'PitchKick';
+const siteName = 'World Cup 2026';
 
 const description =
-  'PitchKick is a fast, arcade browser football game. Grab the ball, beat the keeper, and score against the CPU using classic keyboard controls.';
+  'World Cup 2026 is a fast, arcade browser football game. Grab the ball, beat the keeper, and score against the CPU using classic keyboard controls.';
 
 export const seoConfig: SeoConfig = {
   siteName,

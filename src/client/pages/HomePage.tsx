@@ -136,7 +136,7 @@ export default function HomePage() {
       <header className="w-full max-w-5xl flex items-center justify-between mb-5 animate-fade-in">
         <div className="flex items-baseline gap-3">
           <span className="font-display text-5xl leading-none tracking-wide text-volt-500">
-            PITCH<span className="text-white">KICK</span>
+            WORLD CUP <span className="text-white">2026</span>
           </span>
           <span className="hidden sm:inline font-heading uppercase text-xs tracking-[0.3em] text-night-300">
             Arcade Football

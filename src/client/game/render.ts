@@ -127,7 +127,7 @@ function drawCrowd(ctx: CanvasRenderingContext2D, camX: number) {
   for (let x = x0; x < x0 + span; x += 220) {
     const sx = x + offset;
     if (sx < -110 || sx > CANVAS_W + 110) continue;
-    ctx.fillText('P I T C H K I C K', sx, bottom + hoardH / 2 + 4);
+    ctx.fillText('W O R L D   C U P   2 0 2 6', sx, bottom + hoardH / 2 + 4);
   }
 }
 
