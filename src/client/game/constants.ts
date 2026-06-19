@@ -61,15 +61,18 @@ export const CONTROL_HEIGHT = M(1.25);
 export const WALK_SPEED = 128;
 export const SPRINT_SPEED = 198;
 export const TEAMMATE_SPEED = 128;
-/** A chasing defender genuinely sprints after the ball (was a slow jog). */
-export const AWAY_CHASE_SPEED = 191;
+/** A chasing defender genuinely sprints after the ball. SLIGHTLY faster than a
+ *  dribbler (who pays the DRIBBLE_MULT penalty) so a free defender can run down
+ *  an average carrier — he isn't carrying the ball. ≈35 km/h. */
+export const AWAY_CHASE_SPEED = 204;
 /** The CPU carrier dribbles at the (penalised) carrying pace. */
 export const AWAY_CARRY_SPEED = 176;
 export const AWAY_FORMATION_SPEED = 120;
 /** Off-ball forward runs in behind (both teams). */
 export const RUN_SPEED = 178;
-/** Closing down the carrier / tracking a marked attacker — a real sprint. */
-export const PRESS_SPEED = 191;
+/** Closing down the carrier / tracking a marked attacker — a real sprint.
+ *  Matches AWAY_CHASE so your AI teammate can also run a dribbler down. */
+export const PRESS_SPEED = 204;
 /** Contain (hold C): jockey speed while shadowing the carrier. */
 export const JOCKEY_SPEED = 150;
 /** Burst speed of the standing-tackle lunge (D without the ball). */

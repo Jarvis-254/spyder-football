@@ -808,12 +808,17 @@ game state yet (no Stores/queries for gameplay).
   - All timers reset on kickoff.
 - DEFENDING CONTROLS (FIFA-style, added after user noted tackles felt
   passive-only):
-  - `canTackle(tackler, carrier)`: REALISM GATE shared by every steal path.
-    Requires (a) defender on the BALL side of the carrier — sideDot =
+  - `canTackle(tackler, carrier, requireBallSide=true)`: REALISM GATE.
+    (a) BALL-side check (only when requireBallSide): sideDot =
     (ball-carrier)·(tackler-carrier) >= 0, so a defender shielded out behind
-    the carrier can't win it; and (b) defender facing the ball — faceDot of
-    (tackler.facing · dirToBall) > 0.15 (~within 80°). Added after user
-    reported steals from behind / facing away.
+    the carrier can't make a CLEAN nick; (b) facing check (always): faceDot of
+    (tackler.facing · dirToBall) > 0.15 (~within 80°). TACKLE-FIX v4 (user:
+    "I can just run with the ball, opponent can't tackle even when I stop /
+    stuck behind me"): the ball-side requirement is now OPTIONAL. `pokeTackle`
+    (clean nick) keeps requireBallSide=true, but `updateJostle` (physical
+    body-contact steal) calls `canTackle(q, o, false)` so a defender pressed
+    against the carrier's back CAN strip it loose — you can no longer shield
+    forever by running straight.
   - `pokeTackle(tackler, reach)`: shared steal primitive — if an opposing
     non-GK carrier exists, stealProtect elapsed, tackler not `dispossessed`,
     ball within reach, AND canTackle passes, the ball is placed 6px past the
@@ -829,9 +834,20 @@ game state yet (no Stores/queries for gameplay).
     KeyC added to MOVE_KEYS (hold key, no justPressed).
   - Auto jostle (`updateJostle`, runs before resolvePossession, both teams):
     nearest opposing non-GK in body contact with the carrier (centre dist <
-    r+r+9) accumulates `jostle` += dt (decays 2.5x when no contact /
-    protected); at 0.5s the challenger pokes the ball loose automatically.
-    `jostle` reset on possession change, kickoff and successful pokes.
+    r+r+11, widened in v4) accumulates `jostle` += dt (decays 2.5x when no
+    contact / protected); at 0.5s the challenger pokes the ball loose
+    automatically. Challenger qualifies via `canTackle(q, o, false)` — any
+    side, so a defender on the carrier's back wins it. `jostle` reset on
+    possession change, kickoff and successful pokes.
+  - TACKLE-FIX v4 CHASE-INTO-CONTACT: `moveToward` decelerates within 36px of
+    its target, so chasers used to hover ~6px behind the carrier and never make
+    body contact (no jostle, no steal). New `driveToward(p, t, speed, dt)` is a
+    no-slow-in steer that barges straight into the man. The away chaser (vs a
+    human carrier) and the home presser (vs an away carrier) now use
+    `driveToward` at AWAY_CHASE_SPEED / PRESS_SPEED (both bumped 191→204 px/s
+    ≈35 km/h, just over an average dribbler) so a free defender runs the
+    carrier down and into a jostle. A genuine PAC 95+ speed-merchant can still
+    occasionally pull away — realistic given the ratings.
   - FIFA reference: tackles are manual buttons; contain auto-pokes; physical
     seal-outs from running into the dribbler are automatic; C = contain on
     PC keyboard.

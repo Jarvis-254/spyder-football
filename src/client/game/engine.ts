@@ -453,6 +453,19 @@ export class PitchKickGame {
     this.steer(p, (dx / d) * sp, (dy / d) * sp, dt);
   }
 
+  /**
+   * Like moveToward but with NO slow-in — the player drives at full speed all
+   * the way to the target. Used to CHASE a ball-carrier: the defender must
+   * barge into body contact (and win the jostle), not decelerate and hover a
+   * few px behind forever (which let a dribbler run untouched).
+   */
+  private driveToward(p: PlayerEntity, t: Vec, speed: number, dt: number) {
+    const dx = t.x - p.x;
+    const dy = t.y - p.y;
+    const d = len(dx, dy) || 1;
+    this.steer(p, (dx / d) * speed, (dy / d) * speed, dt);
+  }
+
   // ---- update -------------------------------------------------------------
 
   private loop = (now: number) => {
@@ -1975,11 +1988,17 @@ export class PitchKickGame {
         continue;
       }
       if (p === presser) {
-        const t = this.clampTarget({
-          x: this.ball.x + this.ball.vx * 0.18,
-          y: this.ball.y + this.ball.vy * 0.18,
-        });
-        this.moveToward(p, t, PRESS_SPEED, dt);
+        // Drive straight at the carrier (no slow-in) to barge into a challenge;
+        // chase a loose ball with anticipation instead.
+        if (awayCarrier) {
+          this.driveToward(p, awayCarrier, PRESS_SPEED, dt);
+        } else {
+          const t = this.clampTarget({
+            x: this.ball.x + this.ball.vx * 0.18,
+            y: this.ball.y + this.ball.vy * 0.18,
+          });
+          this.moveToward(p, t, PRESS_SPEED, dt);
+        }
         continue;
       }
       const plan = this.offBallPlan(p, TEAMMATE_SPEED);
@@ -2088,18 +2107,19 @@ export class PitchKickGame {
       if (p === carrier) {
         this.updateAwayCarrier(p, dt);
       } else if (p === chaser) {
-        // Chase the ball with slight anticipation. When hunting the user's
-        // carrier, aim AT the man (a touch goal-side) and sprint to engage.
-        const t = userCarrier
-          ? {
-              x: clamp(userCarrier.x - 6, p.r, FIELD_W - p.r),
-              y: clamp(userCarrier.y, p.r, FIELD_H - p.r),
-            }
-          : {
-              x: clamp(this.ball.x + this.ball.vx * 0.18, p.r, FIELD_W - p.r),
-              y: clamp(this.ball.y + this.ball.vy * 0.18, p.r, FIELD_H - p.r),
-            };
-        this.moveToward(p, t, AWAY_CHASE_SPEED, dt);
+        // Chase to engage. When hunting the user's carrier, DRIVE straight at
+        // the man at full pace (no slow-in) so the defender barges into body
+        // contact and wins the jostle, instead of hovering a few px behind. A
+        // loose ball is chased with slight anticipation.
+        if (userCarrier) {
+          this.driveToward(p, userCarrier, AWAY_CHASE_SPEED, dt);
+        } else {
+          const t = {
+            x: clamp(this.ball.x + this.ball.vx * 0.18, p.r, FIELD_W - p.r),
+            y: clamp(this.ball.y + this.ball.vy * 0.18, p.r, FIELD_H - p.r),
+          };
+          this.moveToward(p, t, AWAY_CHASE_SPEED, dt);
+        }
       } else {
         const plan = this.offBallPlan(p, AWAY_FORMATION_SPEED);
         const sp =
@@ -2206,23 +2226,32 @@ export class PitchKickGame {
   // ---- possession / ball ---------------------------------------------------
 
   /**
-   * Realism gate shared by every steal path: a tackle only connects when the
-   * defender can actually reach the ball — i.e. he's on the BALL side of the
-   * carrier (not shielded out behind him) AND roughly facing the ball. A
-   * defender at the carrier's back, facing the other way, can't win it (he'd
-   * have to foul). The carrier dribbles the ball ahead of his facing, so we
-   * compare the defender's position to where the ball actually is.
+   * Realism gate shared by every steal path. `requireBallSide` distinguishes a
+   * CLEAN poke (true) from a sustained body-contact challenge (false):
+   *  - A clean poke needs the defender on the BALL side of the carrier (not
+   *    shielded out behind him) AND roughly facing the ball — you can't cleanly
+   *    nick a ball the carrier's body is screening.
+   *  - A sustained shoulder-to-shoulder battle (jostle) can win the ball from
+   *    ANY side: you can't shield a defender off forever while running, so a
+   *    defender glued to your back eventually muscles/pokes it away. Only the
+   *    facing check applies (a defender turned the wrong way can't win it).
    */
-  private canTackle(tackler: PlayerEntity, carrier: PlayerEntity): boolean {
-    // Shielding: is the defender on the same side as the ball, relative to
-    // the carrier's body? If the carrier is between the defender and the
-    // ball, the ball is screened and can't be taken cleanly.
-    const ballSideX = this.ball.x - carrier.x;
-    const ballSideY = this.ball.y - carrier.y;
-    const tackSideX = tackler.x - carrier.x;
-    const tackSideY = tackler.y - carrier.y;
-    const sideDot = ballSideX * tackSideX + ballSideY * tackSideY;
-    if (sideDot < 0) return false; // behind the carrier → shielded out
+  private canTackle(
+    tackler: PlayerEntity,
+    carrier: PlayerEntity,
+    requireBallSide = true,
+  ): boolean {
+    if (requireBallSide) {
+      // Shielding: is the defender on the same side as the ball, relative to
+      // the carrier's body? If the carrier is between the defender and the
+      // ball, the ball is screened and can't be taken cleanly.
+      const ballSideX = this.ball.x - carrier.x;
+      const ballSideY = this.ball.y - carrier.y;
+      const tackSideX = tackler.x - carrier.x;
+      const tackSideY = tackler.y - carrier.y;
+      const sideDot = ballSideX * tackSideX + ballSideY * tackSideY;
+      if (sideDot < 0) return false; // behind the carrier → shielded out
+    }
 
     // Engagement: the defender must be facing toward the ball (within ~80°),
     // not turned the other way.
@@ -2281,10 +2310,12 @@ export class PitchKickGame {
     for (const q of opps) {
       if (q.isGK || q === this.dispossessed) continue;
       const d = dist(q, o);
-      // Only count a body-contact challenge that is actually goal/ball-side
-      // and engaged — a defender shielded out at the carrier's back can lean
-      // on him forever without ever winning it.
-      if (d < o.r + q.r + 9 && d < bestD && this.canTackle(q, o)) {
+      // Body-contact challenge: a defender touch-tight to the carrier and
+      // facing the ball is battling for it — from ANY side. You can't shield a
+      // chaser off forever, so a defender glued to your back (or alongside) is
+      // a valid challenger here (requireBallSide=false). Sustained contact then
+      // wins it below, scaled by PHYSICALITY.
+      if (d < o.r + q.r + 11 && d < bestD && this.canTackle(q, o, false)) {
         bestD = d;
         challenger = q;
       }
