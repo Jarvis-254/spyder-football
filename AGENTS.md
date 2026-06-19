@@ -181,12 +181,19 @@ game state yet (no Stores/queries for gameplay).
     · `duelRate` (PHY difference of challenger vs carrier, clamp .45-1.8) — in
       `updateJostle` shoulder-to-shoulder battles.
     `ovr` is display/AI-strength only; the 6 face stats drive actual gameplay.
-  - HAND-RATED TEAMS (16 top contenders, EA-FC-knowledge values, accurate for
-    stars): argentina, brazil, france, spain, england, portugal, germany,
-    netherlands, belgium, croatia, uruguay, colombia, morocco, senegal,
-    switzerland, usa. The OTHER 32 teams have NO `r` tuples yet → they fall back
-    to `ROLE_DEFAULT` (~70 ovr, clearly weaker than hand-rated sides) and will be
-    hand-rated in follow-ups. To rate a team: add `r:[...]` to each roster entry.
+  - HAND-RATED TEAMS: ALL 48 teams now carry per-player `r:[PAC,SHO,PAS,DRI,DEF,
+    PHY]` tuples (EA-FC-knowledge values, grounded in each player's real rating
+    profile — not the `ROLE_DEFAULT` fallback anymore). First 16 (top contenders):
+    argentina, brazil, france, spain, england, portugal, germany, netherlands,
+    belgium, croatia, uruguay, colombia, morocco, senegal, switzerland, usa.
+    Remaining 32 rated 2026-06 in 4 batches: Americas (mexico, ecuador, paraguay,
+    panama, canada, haiti, curacao, capeverde); Europe (norway, sweden, austria,
+    czechia, scotland, turkey, bosnia); Asia/Oceania (japan, southkorea, iran,
+    iraq, jordan, qatar, saudiarabia, uzbekistan, australia, newzealand); Africa
+    (algeria, egypt, tunisia, ghana, ivorycoast, drcongo, southafrica). NOTE:
+    obscure/squad-player values are level-appropriate estimates by role, not exact
+    FC 26 numbers. To re-rate: edit `r:[...]` on the roster entry. Verify none are
+    missing with: `for f in teams/*.ts; do grep -c "r: \[" "$f"; done` (each XI=11).
 - Player names: each `PlayerEntity` has a `name` (surname) and real `num`. Names
   are shown as FIFA broadcast lower-thirds in the BOTTOM CORNERS (NOT above the
   player): home active player bottom-left, CPU active player bottom-right

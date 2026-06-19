@@ -349,10 +349,6 @@ function FixtureBanner({ match }: { match: Match }) {
       <span className="font-heading uppercase tracking-wider text-xs text-night-300">
         WC&nbsp;2026 · Group&nbsp;{match.group}
       </span>
-      <span className="hidden sm:inline font-body text-xs text-night-300">·</span>
-      <span className="hidden sm:inline font-body text-xs text-night-500 truncate max-w-[18ch]">
-        {match.venue}
-      </span>
       <span className="font-body text-xs text-night-300">·</span>
       <span className="font-body text-xs text-white tabular-nums">{time}</span>
     </div>
