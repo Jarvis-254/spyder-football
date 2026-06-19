@@ -131,14 +131,14 @@ export default function HomePage() {
   };
 
   return (
-    <div className="min-h-full flex flex-col items-center px-4 py-6 bg-night-950">
-      {/* Brand bar */}
-      <header className="w-full max-w-5xl flex items-center justify-between mb-5 animate-fade-in">
+    <div className="min-h-full flex flex-col bg-night-950">
+      {/* Brand bar — slim so the pitch gets the screen */}
+      <header className="w-full flex items-center justify-between px-4 py-2 animate-fade-in">
         <div className="flex items-baseline gap-3">
-          <span className="font-display text-5xl leading-none tracking-wide text-volt-500">
+          <span className="font-display text-2xl sm:text-3xl leading-none tracking-wide text-volt-500">
             WORLD CUP <span className="text-white">2026</span>
           </span>
-          <span className="hidden sm:inline font-heading uppercase text-xs tracking-[0.3em] text-night-300">
+          <span className="hidden md:inline font-heading uppercase text-[10px] tracking-[0.3em] text-night-300">
             Arcade Football
           </span>
         </div>
@@ -146,14 +146,14 @@ export default function HomePage() {
           <div className="flex items-center gap-4">
             <button
               onClick={handleRematch}
-              className="flex items-center gap-2 font-heading uppercase text-sm tracking-wider text-night-300 hover:text-volt-400 transition-colors"
+              className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={15} />
               Rematch
             </button>
             <button
               onClick={handleRestart}
-              className="flex items-center gap-2 font-heading uppercase text-sm tracking-wider text-night-300 hover:text-volt-400 transition-colors"
+              className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
             >
               Change teams
             </button>
@@ -161,14 +161,17 @@ export default function HomePage() {
         )}
       </header>
 
-      {/* Pitch */}
-      <div className="relative w-full max-w-5xl rounded-card overflow-hidden border border-night-800 shadow-2xl animate-slide-up">
+      {/* Pitch — full-bleed width, height-capped so it stays on one screen */}
+      <div className="relative mx-auto w-fit max-w-full overflow-hidden border-y border-night-800 shadow-2xl animate-slide-up">
         <canvas
           ref={canvasRef}
           width={CANVAS_W}
           height={CANVAS_H}
-          className="block w-full h-auto"
-          style={{ aspectRatio: `${CANVAS_W} / ${CANVAS_H}` }}
+          className="block w-auto h-auto max-w-full"
+          style={{
+            aspectRatio: `${CANVAS_W} / ${CANVAS_H}`,
+            maxHeight: 'calc(100vh - 168px)',
+          }}
         />
 
         {/* FIFA-style broadcast scoreboard. */}
@@ -293,23 +296,23 @@ export default function HomePage() {
       </div>
 
       {/* Controls legend */}
-      <div className="w-full max-w-5xl mt-5 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2 animate-fade-in">
+      <div className="w-full px-4 mt-2 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2 animate-fade-in">
         {CONTROLS.map((c) => (
           <div
             key={c.label}
-            className="flex flex-col items-center gap-1 bg-night-900 border border-night-800 rounded-xl py-3 px-2"
+            className="flex flex-col items-center gap-0.5 bg-night-900 border border-night-800 rounded-lg py-1.5 px-2"
           >
-            <kbd className="font-heading text-volt-400 text-base tracking-wider">
+            <kbd className="font-heading text-volt-400 text-sm tracking-wider">
               {c.keys}
             </kbd>
-            <span className="font-body text-xs text-night-300 uppercase tracking-wide">
+            <span className="font-body text-[10px] text-night-300 uppercase tracking-wide">
               {c.label}
             </span>
           </div>
         ))}
       </div>
 
-      <p className="mt-5 text-xs text-night-300 font-body text-center max-w-xl">
+      <p className="mt-2 mb-3 px-4 text-xs text-night-300 font-body text-center max-w-3xl mx-auto">
         Tip: hold a pass/shot key to charge the power gauge, release to kick —
         a quick tap plays it soft. Defending: tap{' '}
         <span className="text-volt-400">D</span> for a standing tackle, hold{' '}

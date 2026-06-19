@@ -104,6 +104,12 @@ export class PitchKickGame {
    *  their run is biased to meet the ball so a mistimed arrow press doesn't
    *  make them run away from it. Cleared once possession resolves. */
   private passReceiver: PlayerEntity | null = null;
+  /** The intended receiver of a LOFTED pass currently in flight. While the ball
+   *  is still airborne, only this player may gather it — a chipped/long pass
+   *  can't be plucked out of the air by a defender standing in the lane (it
+   *  flew over them). Cleared the moment the ball lands (updateBall) or on any
+   *  fresh non-lofted kick (afterKick). */
+  private aerialReceiver: PlayerEntity | null = null;
   private cpuDecision = 0;
   /** Protection window after winning the ball — can't be tackled. */
   private stealProtect = 0;
@@ -306,6 +312,7 @@ export class PitchKickGame {
     this.lastTouchTeam = kickingTeam;
     this.kickerLock = 0;
     this.passReceiver = null;
+    this.aerialReceiver = null;
     this.gkRush = 0;
     this.stealProtect = 0;
     this.dispossessed = null;
@@ -1085,6 +1092,7 @@ export class PitchKickGame {
       const vz = 0.5 * GRAVITY * T;
       const hspeed = Math.min((d / T) * 1.08, 1500);
       this.kickBallToward(aim, hspeed, kicker, vz, 0.05);
+      this.aerialReceiver = target;
       this.controlled = target;
       return;
     }
@@ -1100,6 +1108,7 @@ export class PitchKickGame {
       const hspeed = Math.min((d / T) * 1.12, 1500);
       // A raking long ball is harder to land on a sixpence than a short pass.
       this.kickBallToward(aim, hspeed, kicker, vz, 0.045);
+      this.aerialReceiver = target;
       this.controlled = target;
       return;
     }
@@ -1161,6 +1170,9 @@ export class PitchKickGame {
     const vz = 0.5 * GRAVITY * T;
     const hspeed = Math.min(d / T, 900);
     this.kickBallToward(aim, hspeed, thrower, vz, 0.04);
+    // A thrown ball is also aerial — only the intended teammate gathers it in
+    // flight, it can't be picked off mid-air.
+    if (target) this.aerialReceiver = target;
 
     // No offside can be given from a throw-in (real rule).
     this.offsideFlags.clear();
@@ -1341,6 +1353,9 @@ export class PitchKickGame {
 
   private afterKick(kicker: PlayerEntity) {
     this.owner = null;
+    // Default: this kick is NOT a protected aerial pass. Lofted-pass callers
+    // re-arm `aerialReceiver` immediately after kickBallToward returns.
+    this.aerialReceiver = null;
     this.lastKicker = kicker;
     this.lastTouchTeam = kicker.team;
     this.kickerLock = 0.45;
@@ -1963,6 +1978,9 @@ export class PitchKickGame {
       const vz = 0.5 * GRAVITY * T;
       const hspeed = Math.min((d / T) * 1.12, 1600);
       this.kickBallToward(aim, hspeed, gk, vz, 0.06);
+      // A lofted clearance flies over midfield — only the target mate gathers
+      // it on the way down, opponents can't pluck it out of the air.
+      this.aerialReceiver = best;
     } else {
       this.kickBallToward(aim, this.passPower(d, 300, 1300), gk);
     }
@@ -2180,10 +2198,20 @@ export class PitchKickGame {
       return;
     }
 
+    // A lofted pass in flight (long ball / chip / clearance / throw) can only
+    // be gathered by its intended receiver as it drops — a defender in the lane
+    // can't pluck it out of the air, it sailed over them. Once it lands the
+    // flag is cleared (updateBall) and it's a normal loose ball.
+    const aerialLock =
+      this.aerialReceiver && (this.ball.z > M(0.4) || this.ball.vz > 5)
+        ? this.aerialReceiver
+        : null;
+
     const ballSpeed = Math.hypot(this.ball.vx, this.ball.vy);
     let best: PlayerEntity | null = null;
     let bestD = Infinity;
     for (const p of [...this.homePlayers, ...this.awayPlayers]) {
+      if (aerialLock && p !== aerialLock) continue;
       if (this.kickerLock > 0 && p === this.lastKicker) continue;
       // A freshly dispossessed player can't win the ball straight back.
       if (this.dispossessed === p) continue;
@@ -2559,6 +2587,9 @@ export class PitchKickGame {
       this.ball.vz -= GRAVITY * dt;
       this.ball.z += this.ball.vz * dt;
       if (this.ball.z <= 0) {
+        // Landed: the protected aerial pass is over — it's a normal loose ball
+        // now (whoever is at the drop can contest it).
+        this.aerialReceiver = null;
         // Landed: bounce with restitution; settle when the hop gets tiny.
         this.ball.z = 0;
         if (this.ball.vz < 0) this.ball.vz = -this.ball.vz * BOUNCE;
@@ -2654,6 +2685,7 @@ export class PitchKickGame {
     b.z = 0;
     b.vx = b.vy = b.vz = 0;
     this.owner = null;
+    this.aerialReceiver = null;
     this.pendingRestart = { team, spotX, spotY, label, takerIsGK, isThrowIn };
     this.outOfPlay = 1.2;
   }

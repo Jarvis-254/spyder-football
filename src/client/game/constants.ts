@@ -7,7 +7,11 @@ export const FIELD_W = 2200; // 105 m  → PX_PER_M ≈ 20.95
 export const PX_PER_M = FIELD_W / 105;
 export const FIELD_H = Math.round(68 * PX_PER_M); // 68 m ≈ 1425 (true 105:68)
 export const MARGIN = 56;
-export const CANVAS_W = 1162;
+// Broadcast viewport. A wider (2:1) frame than the pitch is tall shows more of
+// the goal-to-goal axis at once, so the goalmouth + net behind it stay fully on
+// screen (a shot into the net used to clip off the right edge) and the field
+// fills a wide monitor edge-to-edge.
+export const CANVAS_W = 1400;
 export const CANVAS_H = 700;
 
 /** Metres → field pixels. */

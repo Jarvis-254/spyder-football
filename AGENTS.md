@@ -47,8 +47,12 @@ game state yet (no Stores/queries for gameplay).
   scales are UNCHANGED by the FIELD_H grow; only relative marking/player/ball
   sizes became correct. Caveat: speeds are still px/s, so vertical (depth)
   coverage now reads ~⅓ slower on screen than before — retune speeds if
-  defending feels sluggish. 56px margin (`CANVAS_W=1162`/`CANVAS_H=700`
-  exported). The camera only shows part of the pitch (FIFA tele cam style):
+  defending feels sluggish. 56px margin (`CANVAS_W=1400`/`CANVAS_H=700`
+  exported — a wide 2:1 broadcast frame; was 1162. Widened so the goalmouth +
+  net behind it stay fully on screen (a shot into the net used to clip off the
+  right edge) and the pitch fills a wide monitor. render.ts uses CANVAS_W for
+  all centring/fills so it adapts automatically; proj centres on CANVAS_W/2).
+  The camera only shows part of the pitch (FIFA tele cam style):
   engine `camX` follows ball + vel*0.25 lookahead with exponential smoothing
   (k = 1-exp(-2.6dt)), clamped to CAM_MIN=360..CAM_MAX=FIELD_W-360. Render
   syncs module-level `viewCamX` from it; `proj()` offsets x by viewCamX.
@@ -77,6 +81,16 @@ game state yet (no Stores/queries for gameplay).
   [home]–[away][abbr][away bar][clock]`, colours/abbrs from the selected teams.
   Header shows Rematch (replay same teams) + Change teams (back to select) while
   playing.
+- FULL-SCREEN LAYOUT (added after "make the field take the full screen, thinner
+  top bar, no left/right margins, wider field"): outer is `flex flex-col` (NOT
+  items-center, no page padding). Header is SLIM (`px-4 py-2`, brand `text-2xl
+  sm:text-3xl`, was text-5xl). The pitch wrapper is `relative mx-auto w-fit
+  max-w-full border-y` (full-bleed, no max-w-5xl, no side margin); the canvas is
+  `w-auto h-auto max-w-full` with inline `maxHeight: calc(100vh - 168px)` so it
+  fills the width but stays on one screen without distortion (overlays anchor to
+  the w-fit wrapper = canvas bounds). Controls legend is `w-full px-4` 9-up on md
+  (`md:grid-cols-9`, compact py-1.5). Goal-cut on scoring was fixed by the wider
+  CANVAS_W=1400, not the layout.
 - TEAM-SELECT SCREEN (FIFA-style, `phase==='select'`): two `TeamCrest` panels,
   LEFT = you (home), RIGHT = CPU (away). One side is `activeSide` at a time
   (home first). A window keydown effect (only mounted during select): ArrowLeft/
@@ -466,7 +480,8 @@ game state yet (no Stores/queries for gameplay).
   changed. Projection in engine.ts top: `proj(x,y)` → screen {x,y,s} with
   scale lerp S_FAR=0.56 (far touchline, y=0) → S_NEAR=1.0 (near, y=FIELD_H);
   screenY uses the INTEGRAL of scale so vertical foreshortening is correct.
-  PITCH_TOP=116, PITCH_DRAW_H=510, CANVAS_H=700 (CANVAS_W unchanged).
+  PITCH_TOP=116, PITCH_DRAW_H=510, CANVAS_H=700 (CANVAS_W was unchanged AT THE
+  TIME; later widened to 1400 — see the CANVAS_W note near the top).
 - `drawHumanoid()` draws UPRIGHT footballers at foot position, scaled by
   depth: two-tone legs (skin + sock + boot w/ kit-accent flash) scissor with
   distance-driven `animPhase`, lift on swing, kick pose extends striking leg,
@@ -685,6 +700,19 @@ game state yet (no Stores/queries for gameplay).
   rejects balls with z>M(2.44) (over the bar). drawBall lifts sprite by
   z*q.s, shrinks/fades the ground shadow with height (hf=1/(1+z*0.03)), and
   grows the ball slightly as it rises. Ball depth-sorts at its GROUND y.
+- AERIAL PASS LOCK (added after "the ball is intercepted during A or Q+W when
+  it is up in the air"): a LOW-arc lofted pass dips below CONTROL_HEIGHT in
+  mid-flight, so a defender in the lane could trap it out of the air. Fix:
+  `aerialReceiver: PlayerEntity|null` records the intended receiver of a lofted
+  pass. Set right AFTER kickBallToward in: passAssisted (long-ball A + lofted
+  through Q+W), executeThrowIn (the throw target), and keeperDistribute (lofted
+  clearance branch). afterKick clears it by default (a normal kick is not a
+  protected aerial pass), so only those callers re-arm it. In resolvePossession,
+  while `aerialReceiver` is set AND the ball is still airborne (`z>M(0.4) ||
+  vz>5`), the interception loop SKIPS everyone except aerialReceiver — the pass
+  can't be picked off mid-air, only the target gathers it as it drops. Cleared
+  the instant the ball LANDS (z<=0 in updateBall → normal loose ball, whoever's
+  at the drop contests it), and in resetKickoff/queueRestart.
 - Tackling (fixed twice after user reports; v2 fixed the GEOMETRY, not just
   timers — the dribble used to push the ball ahead of the tackler's facing,
   i.e. straight back into the opponent):
