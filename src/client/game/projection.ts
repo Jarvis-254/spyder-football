@@ -31,9 +31,12 @@ let viewCamY = FIELD_H / 2;
  *  Pulled in with the closer zoom so the goalmouth stays framed. */
 export const CAM_MIN = 360;
 export const CAM_MAX = FIELD_W - 360;
-/** Vertical camera clamp: keep the visible window roughly within the pitch. */
+/** Vertical camera clamp: keep the visible window roughly within the pitch.
+ *  CAM_Y_MAX is pulled DOWN close to the near touchline so that when play is in
+ *  the bottom third the camera pans far enough to actually show the near
+ *  (bottom) touchline — otherwise it sits just off the bottom of the canvas. */
 export const CAM_Y_MIN = FIELD_H * 0.30;
-export const CAM_Y_MAX = FIELD_H * 0.70;
+export const CAM_Y_MAX = FIELD_H * 0.82;
 
 export type Projected = { x: number; y: number; s: number };
 

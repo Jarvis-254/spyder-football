@@ -729,7 +729,37 @@ game state yet (no Stores/queries for gameplay).
   - FIFA reference: tackles are manual buttons; contain auto-pokes; physical
     seal-outs from running into the dribbler are automatic; C = contain on
     PC keyboard.
-- Ball bounces off all walls except goal mouths (no throw-ins yet).
+- OUT OF PLAY → THROW-IN / GOAL KICK / CORNER (added after "add proper ball
+  going out of field — sides and goal kicks don't exist, it just bounces back"):
+  the touchline/byline BOUNCE in updateBall was REMOVED and replaced with
+  `this.checkOutOfPlay()`. A persistent `lastTouchTeam: Team|null` tracks who
+  last touched the ball (set in afterKick, resolvePossession on a gain,
+  keeperParry, outfieldBlock, awardRestart; reset in resetKickoff) — distinct
+  from `lastKicker` which CLEARS on possession, so it survives a loose ball going
+  out. `checkOutOfPlay()`:
+  - TOUCHLINE (b.y<0 || b.y>FIELD_H) → THROW-IN to the team that did NOT touch it
+    last, at the exit point (spotX clamped M(3)..FIELD_W-M(3)). Label
+    `THROW-IN · <TEAM>`, taker is nearest outfielder.
+  - BYLINE (b.x<0 || b.x>FIELD_W): if the ball is in the goal mouth (goalTop<y<
+    goalBottom) AND under the bar (z<=M(2.44)) it RETURNS EARLY — that's a GOAL,
+    handleGoals (runs after updateBall) scores it; do NOT misread it as out. Else:
+    last touch by the ATTACKING team → GOAL KICK to defenders (spot M(5.5) out
+    from goal, taker = GK); last touch by the DEFENDING team → CORNER to attackers
+    (spot at the goal-line corner, M(1) from the near touchline), taker nearest
+    outfielder. attackingTeam attacks that goal: left line (x<0) ← away attacks,
+    right line ← home attacks.
+  - `awardRestart(team, spotX, spotY, label, takerIsGK)`: stops the ball dead at
+    the spot, zeroes ALL players' momentum + kick/dive timers, picks nearest taker
+    (GK pool if takerIsGK else outfield) and places them just behind the ball,
+    sets owner=taker, controlled = home taker (else home kickoffFwd), pans camera,
+    `setMessage(label,1.6)`, `freeze=0.9`, and clears all transient state
+    (lastKicker, kickerLock, stealProtect=1.0, dispossessed, offside flags,
+    marks, ballFree, jostle, tackle/charge timers, gkRush, passReceiver) plus
+    lastTouchTeam=team. Modeled on the callOffside restart pattern.
+- BOTTOM TOUCHLINE VISIBILITY: `CAM_Y_MAX = FIELD_H * 0.82` (was 0.70). At 0.70
+  the near (bottom) touchline projected ~706px, just off the 700px canvas even at
+  max depth pan, so it was never visible; 0.82 brings it on-screen (~589-609px)
+  during bottom-third play. CAM_Y_MIN stays 0.30.
 - 2-minute timer; goals reset to kickoff (conceding team kicks off);
   full-time verdict freezes play.
 - OFFSIDE (both teams): `snapshotOffside(kicker)` runs inside `afterKick` (the
@@ -757,8 +787,9 @@ game state yet (no Stores/queries for gameplay).
   all funnel through afterKick, so all are policed.
 
 ### NOT YET BUILT (future slices)
-- GK diving/saving animations (keeper is just a line-tracking outfielder
-  sprite for now), fouls, throw-ins/corners.
+- Fouls/free kicks/penalties. (Throw-ins, goal kicks and corners now exist —
+  see OUT OF PLAY above; but they're simple ball-placements, no thrower animation
+  or wall/setpiece routines.)
 - Slide tackle, ball height (lobs/crosses/chips).
 - Difficulty levels, player stats, persistence of results to a Store.
 

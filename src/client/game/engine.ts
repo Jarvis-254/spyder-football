@@ -124,6 +124,10 @@ export class PitchKickGame {
    *  the keeper charges off his line to claim/smother the ball (FIFA's "rush
    *  keeper out"). Decays each frame; cleared the instant he gathers it. */
   private gkRush = 0;
+  /** Which team last touched the ball (persists after the ball goes loose,
+   *  unlike `lastKicker` which is cleared on possession). Drives out-of-play
+   *  restart decisions: throw-in / goal kick / corner go to the right side. */
+  private lastTouchTeam: Team | null = null;
 
   private homeScore = 0;
   private awayScore = 0;
@@ -277,6 +281,7 @@ export class PitchKickGame {
 
     this.owner = null;
     this.lastKicker = null;
+    this.lastTouchTeam = kickingTeam;
     this.kickerLock = 0;
     this.passReceiver = null;
     this.gkRush = 0;
@@ -1247,6 +1252,7 @@ export class PitchKickGame {
   private afterKick(kicker: PlayerEntity) {
     this.owner = null;
     this.lastKicker = kicker;
+    this.lastTouchTeam = kicker.team;
     this.kickerLock = 0.45;
     kicker.kickTimer = 0.28;
     // The struck ball is briefly untouchable so it physically leaves the
@@ -2150,6 +2156,7 @@ export class PitchKickGame {
 
     this.owner = best;
     if (best) {
+      this.lastTouchTeam = best.team;
       // FIFA-style: when YOUR team gains possession, you control the man on the
       // ball — INCLUDING the keeper, so you can immediately clear/throw after a
       // save (previously the GK was excluded and you couldn't take over).
@@ -2295,6 +2302,7 @@ export class PitchKickGame {
    *  the ball spills WIDE and away from goal — never sticking to his hands and
    *  never rebounding straight back into the striker. */
   private keeperParry(gk: PlayerEntity, ballSpeed: number) {
+    this.lastTouchTeam = gk.team;
     const outSign = gk.team === 'home' ? 1 : -1; // away from own goal
     const mid = FIELD_H / 2;
     // How far off-centre the shot came in (before we reposition the ball) —
@@ -2334,6 +2342,7 @@ export class PitchKickGame {
    *  sideways spray) at much-reduced pace and becomes a loose ball anyone can
    *  chase. This stops defenders "tackling" a shot clean out of the air. */
   private outfieldBlock(blocker: PlayerEntity, ballSpeed: number) {
+    this.lastTouchTeam = blocker.team;
     // Deflect roughly back off the body, scattered to a random side.
     const baseAng = Math.atan2(-this.ball.vy, -this.ball.vx);
     const ang = baseAng + (Math.random() - Math.random()) * 1.3;
@@ -2434,24 +2443,124 @@ export class PitchKickGame {
       this.ball.vy = 0;
     }
 
-    if (this.ball.y < this.ball.r) {
-      this.ball.y = this.ball.r;
-      this.ball.vy = Math.abs(this.ball.vy) * 0.7;
-    } else if (this.ball.y > FIELD_H - this.ball.r) {
-      this.ball.y = FIELD_H - this.ball.r;
-      this.ball.vy = -Math.abs(this.ball.vy) * 0.7;
+    // The ball leaving the field of play is no longer a wall to bounce off —
+    // it goes OUT and the correct restart (throw-in / goal kick / corner) is
+    // awarded. A ball crossing the goal line inside the mouth & under the bar
+    // is left alone for handleGoals to score.
+    this.checkOutOfPlay();
+  }
+
+  /** Detect the ball crossing a boundary line and award the right restart.
+   *  Touchlines (y) → throw-in to the team that did NOT touch it last. Goal
+   *  lines (x), outside a scored goal → goal kick (attacker put it out) or
+   *  corner (defender put it out). */
+  private checkOutOfPlay() {
+    const b = this.ball;
+    const last = this.lastTouchTeam;
+
+    // ---- Touchlines → throw-in ----
+    if (b.y < 0 || b.y > FIELD_H) {
+      const outY = b.y < 0 ? 0 : FIELD_H;
+      const toTeam: Team = last === 'home' ? 'away' : 'home';
+      const spotX = clamp(b.x, M(3), FIELD_W - M(3));
+      const name = (
+        toTeam === 'home' ? this.homeTeam : this.awayTeam
+      ).name.toUpperCase();
+      this.awardRestart(toTeam, spotX, outY, `THROW-IN · ${name}`, false);
+      return;
     }
 
-    const inGoalMouth = this.ball.y > goalTop && this.ball.y < goalBottom;
-    if (!inGoalMouth) {
-      if (this.ball.x < this.ball.r) {
-        this.ball.x = this.ball.r;
-        this.ball.vx = Math.abs(this.ball.vx) * 0.7;
-      } else if (this.ball.x > FIELD_W - this.ball.r) {
-        this.ball.x = FIELD_W - this.ball.r;
-        this.ball.vx = -Math.abs(this.ball.vx) * 0.7;
+    // ---- Goal lines → goal kick / corner (or a scored goal: leave it) ----
+    if (b.x < 0 || b.x > FIELD_W) {
+      const leftLine = b.x < 0;
+      const inMouth = b.y > goalTop && b.y < goalBottom;
+      // A ball in the mouth and under the bar is a GOAL — handleGoals scores it.
+      if (inMouth && b.z <= M(2.44)) return;
+      // Left line (x=0) is HOME's goal (home defends, away attacks); right line
+      // (x=FIELD_W) is AWAY's goal.
+      const attackingTeam: Team = leftLine ? 'away' : 'home';
+      const defendingTeam: Team = leftLine ? 'home' : 'away';
+      const goalX = leftLine ? 0 : FIELD_W;
+      if (last === attackingTeam) {
+        // Attacker put it out → goal kick to the defending keeper.
+        const dir = leftLine ? 1 : -1;
+        const spotX = goalX + dir * M(5.5); // edge of the 6-yard box
+        const spotY = clamp(b.y, FIELD_H / 2 - M(6), FIELD_H / 2 + M(6));
+        this.awardRestart(defendingTeam, spotX, spotY, 'GOAL KICK', true);
+      } else {
+        // Defender put it out (or unknown) → corner to the attacking side.
+        const cornerY = b.y < FIELD_H / 2 ? M(1) : FIELD_H - M(1);
+        const name = (
+          attackingTeam === 'home' ? this.homeTeam : this.awayTeam
+        ).name.toUpperCase();
+        this.awardRestart(attackingTeam, goalX, cornerY, `CORNER · ${name}`, false);
       }
     }
+  }
+
+  /** Stop play, place the ball at the restart spot, hand it to the nearest
+   *  eligible player of `team` (the keeper for a goal kick), reset transient
+   *  state and freeze briefly with a banner — shared by throw-ins, goal kicks
+   *  and corners. */
+  private awardRestart(
+    team: Team,
+    spotX: number,
+    spotY: number,
+    label: string,
+    takerIsGK: boolean,
+  ) {
+    const players = team === 'home' ? this.homePlayers : this.awayPlayers;
+    const atkDir = team === 'home' ? 1 : -1;
+
+    this.ball.x = spotX;
+    this.ball.y = spotY;
+    this.ball.z = 0;
+    this.ball.vx = this.ball.vy = this.ball.vz = 0;
+
+    for (const p of [...this.homePlayers, ...this.awayPlayers]) {
+      p.vx = p.vy = 0;
+      p.kickTimer = 0;
+      p.diveTimer = 0;
+      p.diveCooldown = 0;
+      p.facing = { x: p.team === 'home' ? 1 : -1, y: 0 };
+    }
+
+    const pool = takerIsGK ? [players[0]] : players.filter((p) => !p.isGK);
+    const taker = this.nearestTo(pool, { x: spotX, y: spotY }) ?? players[1];
+    taker.x = clamp(spotX - atkDir * 14, taker.r, FIELD_W - taker.r);
+    taker.y = clamp(spotY, taker.r, FIELD_H - taker.r);
+    taker.vx = taker.vy = 0;
+    taker.facing = { x: atkDir, y: 0 };
+
+    this.owner = taker;
+    this.controlled =
+      team === 'home' ? taker : this.homePlayers[this.homeTeam.kickoffFwd];
+
+    this.camX = clamp(spotX, CAM_MIN, CAM_MAX);
+    this.camY = clamp(spotY, CAM_Y_MIN, CAM_Y_MAX);
+    this.setMessage(label, 1.6);
+    this.freeze = 0.9;
+
+    // Clear transient ball/possession state so play restarts cleanly.
+    this.lastKicker = null;
+    this.lastTouchTeam = team;
+    this.kickerLock = 0;
+    this.stealProtect = 1.0;
+    this.dispossessed = null;
+    this.dispossessedTimer = 0;
+    this.offsideFlags.clear();
+    this.markAssign.clear();
+    this.markTimer = 0;
+    this.ballFree = 0;
+    this.jostle = 0;
+    this.tackleTimer = 0;
+    this.tackleCooldown = 0;
+    this.gkRush = 0;
+    this.chargeKey = null;
+    this.chargeTime = 0;
+    this.bufferTimer = 0;
+    this.kickPending = false;
+    this.passReceiver = null;
   }
 
   private handleGoals() {
