@@ -150,6 +150,43 @@ game state yet (no Stores/queries for gameplay).
   stores `this.homeTeam`/`this.awayTeam`, and uses them for names/numbers/kits
   (`kitFor` method) + GOAL / full-time messages. To add a nation: create its
   file and append it to `TEAMS`.
+- PLAYER RATINGS (FIFA-style, added June 2026 — user: "player skill scores like
+  in fifa, each rated up to 99 … Pace/Shooting/Passing/Dribbling/Defending/
+  Physicality … affect actual ability … strong team beats weak team with same
+  effort"). Tilt strength chosen by user = "Noticeable — clear advantage to the
+  better team".
+  - DATA MODEL (`teams/types.ts`): `Ratings = {pac,sho,pas,dri,def,phy,ovr}`.
+    A roster entry may carry an optional `r: RatingTuple` = `[PAC,SHO,PAS,DRI,
+    DEF,PHY]` (6 numbers, EA-FC scale 1-99). `buildSquad` calls
+    `makeRatings(roleForIndex(i), entry.r)` per player → fills the tuple (or a
+    `ROLE_DEFAULT` per GK/DF/MF/ST if `r` omitted) and computes `ovr` as a
+    role-weighted sum (`OVR_WEIGHTS`). `roleForIndex`: 0=GK,1-4=DF,5-8=MF,9-10=ST.
+    Each `SquadPlayer` now has `ratings`; `PlayerEntity` (game `types.ts`) carries
+    `ratings` too; `engine.makePlayer` copies `squad.ratings` onto the entity.
+  - GAMEPLAY WIRING (`ratings.ts`, pure multiplier module): BASELINE=75 ("average
+    international") → multiplier 1.0. `attrMul(rating,spread)=1+((rating-75)/100)*
+    spread`. Helpers + where they hook into `engine.ts`:
+    · `paceMul`(spread .6) + `paceAccelMul`(.3) — applied INSIDE `steer()` so
+      EVERY movement path (human + all AI) inherits top speed + accel from PAC.
+      Single chokepoint: nothing else touches movement speed.
+    · `shotPowerMul`(.4) + `shotSpreadMul` (better SHO ⇒ tighter aim, clamp
+      .45-1.7) — in `shootAssisted` (human) and `updateAwayCarrier` CPU shot.
+    · `passPowerMul`(.18) + `passSpreadMul` (better PAS ⇒ tighter, clamp .4-1.8)
+      — in `passAssisted` (ground/through/long) and CPU pass.
+    · `dribbleKeepMul` (better DRI ⇒ less ball-speed penalty while carrying,
+      clamp .62-.99) + `dribbleTurnMul`(.5, turn agility) — in `updateControlled`.
+    · `tackleReachMul`(.45, DEF) — in `pokeTackle`, the SINGLE funnel for ALL
+      tackle paths (standing tackle, contain auto-poke, home AI, away AI, jostle),
+      so DEF affects every challenge.
+    · `duelRate` (PHY difference of challenger vs carrier, clamp .45-1.8) — in
+      `updateJostle` shoulder-to-shoulder battles.
+    `ovr` is display/AI-strength only; the 6 face stats drive actual gameplay.
+  - HAND-RATED TEAMS (16 top contenders, EA-FC-knowledge values, accurate for
+    stars): argentina, brazil, france, spain, england, portugal, germany,
+    netherlands, belgium, croatia, uruguay, colombia, morocco, senegal,
+    switzerland, usa. The OTHER 32 teams have NO `r` tuples yet → they fall back
+    to `ROLE_DEFAULT` (~70 ovr, clearly weaker than hand-rated sides) and will be
+    hand-rated in follow-ups. To rate a team: add `r:[...]` to each roster entry.
 - Player names: each `PlayerEntity` has a `name` (surname) and real `num`. Names
   are shown as FIFA broadcast lower-thirds in the BOTTOM CORNERS (NOT above the
   player): home active player bottom-left, CPU active player bottom-right

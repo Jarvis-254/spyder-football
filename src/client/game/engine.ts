@@ -41,6 +41,18 @@ import {
   SKIN_TONES,
 } from './constants';
 import { len, dist, clamp, distToSegment } from './math';
+import {
+  paceMul,
+  paceAccelMul,
+  shotPowerMul,
+  shotSpreadMul,
+  passPowerMul,
+  passSpreadMul,
+  dribbleKeepMul,
+  dribbleTurnMul,
+  tackleReachMul,
+  duelRate,
+} from './ratings';
 import { CAM_MIN, CAM_MAX, CAM_Y_MIN, CAM_Y_MAX } from './projection';
 import type { Vec, Team, PlayerEntity, StateListener } from './types';
 import { renderScene } from './render';
@@ -232,6 +244,7 @@ export class PitchKickGame {
       role: i === 0 ? 'GK' : i <= 4 ? 'DF' : i <= 8 ? 'MF' : 'ST',
       num: squad.num,
       name: squad.name,
+      ratings: squad.ratings,
     };
   }
 
@@ -400,7 +413,14 @@ export class PitchKickGame {
     dt: number,
     accel: number = ACCEL,
   ) {
-    const k = 1 - Math.exp(-accel * dt);
+    // PACE drives top speed: a quicker player reaches a higher target velocity
+    // for the same intent. Applying it here means every movement path (human
+    // input, chasing, formation runs) inherits the player's pace uniformly.
+    const pace = paceMul(p.ratings);
+    targetVx *= pace;
+    targetVy *= pace;
+    // ...and lends a little extra acceleration/agility off the mark.
+    const k = 1 - Math.exp(-accel * paceAccelMul(p.ratings) * dt);
     p.vx += (targetVx - p.vx) * k;
     p.vy += (targetVy - p.vy) * k;
     p.x += p.vx * dt;
@@ -785,7 +805,8 @@ export class PitchKickGame {
       let speed = sprint ? SPRINT_SPEED : WALK_SPEED;
       // Carrying the ball slows you down (real dribble penalty) — you can't
       // knock it and outrun the whole pitch. A free defender can run you down.
-      if (owns) speed *= DRIBBLE_MULT;
+      // DRIBBLING reduces the penalty: a great dribbler keeps more of his pace.
+      if (owns) speed *= dribbleKeepMul(p.ratings, DRIBBLE_MULT);
       let hx = ix;
       let hy = iy;
 
@@ -861,8 +882,15 @@ export class PitchKickGame {
         tvy = (hy / hl) * speed;
       }
       // The ball-carrier is heavier on the turn (DRIBBLE_ACCEL) — can't jink as
-      // sharply as a free runner.
-      this.steer(p, tvx, tvy, dt, owns ? DRIBBLE_ACCEL : ACCEL);
+      // sharply as a free runner. DRIBBLING sharpens the turn back up for the
+      // skilful, so a great dribbler keeps close control while jinking.
+      this.steer(
+        p,
+        tvx,
+        tvy,
+        dt,
+        owns ? DRIBBLE_ACCEL * dribbleTurnMul(p.ratings) : ACCEL,
+      );
     }
 
     // FIFA-style kick charging + input buffering. Pressing a kick key starts
@@ -1026,10 +1054,12 @@ export class PitchKickGame {
     // a power blast can fly wide of the post, while a placed side-foot is far
     // tighter). The charge term dominates so full-power efforts genuinely miss
     // the target a fair share of the time.
-    const shotSpread = 0.06 + charge * 0.2;
+    // SHOOTING: better strikers hit it harder and straighter — more power and
+    // a tighter spread, so a weak forward sprays the same chance wide.
+    const shotSpread = (0.06 + charge * 0.2) * shotSpreadMul(kicker.ratings);
     this.kickBallToward(
       { x: goalX, y: bestY },
-      620 + 720 * charge,
+      (620 + 720 * charge) * shotPowerMul(kicker.ratings),
       kicker,
       loft,
       shotSpread,
@@ -1114,7 +1144,7 @@ export class PitchKickGame {
       const T = clamp(0.5 + d / M(95) + charge * 0.2, 0.5, 1.15);
       const vz = 0.5 * GRAVITY * T;
       const hspeed = Math.min((d / T) * 1.08, 1500);
-      this.kickBallToward(aim, hspeed, kicker, vz, 0.05);
+      this.kickBallToward(aim, hspeed, kicker, vz, 0.05 * passSpreadMul(kicker.ratings));
       this.aerialReceiver = target;
       this.controlled = target;
       return;
@@ -1130,7 +1160,7 @@ export class PitchKickGame {
       const vz = 0.5 * GRAVITY * T;
       const hspeed = Math.min((d / T) * 1.12, 1500);
       // A raking long ball is harder to land on a sixpence than a short pass.
-      this.kickBallToward(aim, hspeed, kicker, vz, 0.045);
+      this.kickBallToward(aim, hspeed, kicker, vz, 0.045 * passSpreadMul(kicker.ratings));
       this.aerialReceiver = target;
       this.controlled = target;
       return;
@@ -1146,9 +1176,10 @@ export class PitchKickGame {
     // undercharged passes arrive soft/short, overcharged ones run past
     // the receiver. charge 0.4 ≈ the "right" weight.
     const scale = 0.78 + 0.55 * charge;
-    const power = Math.min(base * scale, 1600);
+    // PASSING: accurate passers weight it better and misplace it less often.
+    const power = Math.min(base * scale * passPowerMul(kicker.ratings), 1600);
 
-    this.kickBallToward(aim, power, kicker);
+    this.kickBallToward(aim, power, kicker, 0, 0.03 * passSpreadMul(kicker.ratings));
 
     // Control follows your pass (FIFA-style). All other switching is Q-only.
     this.controlled = target;
@@ -2132,7 +2163,15 @@ export class PitchKickGame {
     // Shoot when in range.
     if (p.x < 300) {
       const gy = clamp(p.y, goalTop + 24, goalBottom - 24);
-      this.kickBallToward({ x: 0, y: gy }, 640, p);
+      // SHOOTING applies to the CPU too — a weak forward hits it softer and
+      // less accurately, a clinical one rifles it in.
+      this.kickBallToward(
+        { x: 0, y: gy },
+        640 * shotPowerMul(p.ratings),
+        p,
+        0,
+        0.05 * shotSpreadMul(p.ratings),
+      );
       return;
     }
 
@@ -2155,8 +2194,10 @@ export class PitchKickGame {
         const d = dist(this.ball, best);
         this.kickBallToward(
           { x: best.x + best.vx * 0.2, y: best.y + best.vy * 0.2 },
-          this.passPower(d, 260, 880),
+          this.passPower(d, 260, 880) * passPowerMul(p.ratings),
           p,
+          0,
+          0.03 * passSpreadMul(p.ratings),
         );
       }
     }
@@ -2204,7 +2245,10 @@ export class PitchKickGame {
     if (!carrier || carrier.team === tackler.team || carrier.isGK)
       return false;
     if (this.stealProtect > 0 || this.dispossessed === tackler) return false;
-    if (dist(tackler, this.ball) > reach) return false;
+    // DEFENDING extends a tackler's effective reach — a top defender nicks it
+    // from a touch further out and times the challenge better.
+    if (dist(tackler, this.ball) > reach * tackleReachMul(tackler.ratings))
+      return false;
     if (!this.canTackle(tackler, carrier)) return false;
 
     const dx = tackler.x - carrier.x;
@@ -2249,7 +2293,9 @@ export class PitchKickGame {
       this.jostle = Math.max(0, this.jostle - dt * 2.5);
       return;
     }
-    this.jostle += dt;
+    // PHYSICALITY decides the duel: a stronger challenger muscles the carrier
+    // off the ball sooner, while a stronger carrier shields it for longer.
+    this.jostle += dt * duelRate(challenger.ratings, o.ratings);
     if (this.jostle < 0.5) return;
     // Contact sustained long enough — the challenger muscles the ball away.
     this.pokeTackle(challenger, Infinity);

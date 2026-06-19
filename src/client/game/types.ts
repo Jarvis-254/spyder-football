@@ -1,6 +1,8 @@
 // Core engine-domain types shared across the simulation and renderer.
 // (Team data types — TeamData, Kit — live in ./teams/types.)
 
+import type { Ratings } from './teams/types';
+
 export type Vec = { x: number; y: number };
 export type Team = 'home' | 'away';
 export type Role = 'GK' | 'DF' | 'MF' | 'ST';
@@ -27,6 +29,8 @@ export interface PlayerEntity {
   num: number;
   /** Surname, shown in the FIFA-style selected-player indicator. */
   name: string;
+  /** FIFA-style attribute card driving this player's in-game ability. */
+  ratings: Ratings;
   /** > 0 while playing the goal-celebration pose (arms raised). */
   celebrating?: boolean;
   /** > 0 while a keeper is playing the dive/save pose (full-body lay-out). */
