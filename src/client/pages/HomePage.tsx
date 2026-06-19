@@ -13,6 +13,7 @@ const CONTROLS: { keys: string; label: string }[] = [
   { keys: '← ↑ ↓ →', label: 'Move' },
   { keys: 'E', label: 'Sprint' },
   { keys: 'D', label: 'Shot / Tackle' },
+  { keys: 'Space', label: 'Slide tackle' },
   { keys: 'S', label: 'Short pass' },
   { keys: 'A', label: 'Long pass' },
   { keys: 'W', label: 'Through pass' },

@@ -844,6 +844,25 @@ game state yet (no Stores/queries for gameplay).
     TACKLE_LUNGE_SPEED=310 toward ball+vel*0.1 (`tackleDir`), poking with
     reach CONTROL_DIST+18 each frame; `tackleCooldown=0.8s` commit (whiff =
     beaten). D WITH ball still charges a shot (charge starts only if owns).
+  - Space with NO ball = SLIDING TACKLE (FIFA-style high-risk/high-reward,
+    added on user request "add a sliding tackle just like in Fifa"). A fully
+    committed, longer-range lunge along your CURRENT heading (falls back to
+    ball+vel*0.12 if near-stationary). Per-player `slideTimer=0.7s` +
+    `slideDir` (PlayerEntity, types.ts); engine `slideCooldown=1.5s`. 'Space'
+    added to ACTION_KEYS (already in MOVE_KEYS for preventDefault) so
+    justPressed captures it. Two phases in updateControlled (FIRST branch in
+    the movement chain, gated by `sliding`): lunge while slideTimer>0.4s —
+    steer along slideDir at SLIDE_LUNGE_SPEED=330 ×decaying-frac with
+    ACCEL*1.6, `pokeTackle(p, CONTROL_DIST+30, false)` (longer reach, ball-side
+    NOT required so you can slide in from any angle); recovery while
+    slideTimer<=0.4s — steer to 0, NO input, NO tackle (grounded = beaten if
+    mistimed). While `sliding`, the W (gkRush) and D (standing tackle) triggers
+    are suppressed. Timers decremented in the global per-player loop +
+    slideCooldown in the engine timer block; both reset in resetKickoff. RENDER
+    (render.ts drawPlayer): grounded full-body lay-out along the projected
+    slideDir — generalizes the keeper-dive layout (`slideLayout` ramps flat
+    fast over the first 45% then sits back up) but with NO airborne lift; the
+    shadow stretches along the slide dir.
   - C (hold) = contain: auto-jockeys to a spot 30px goal-side of the away
     carrier at JOCKEY_SPEED=180 (E sprint → SPRINT*0.94), auto-pokes at
     reach CONTROL_DIST+8 (0.5s cooldown). With loose ball, C hunts the ball.

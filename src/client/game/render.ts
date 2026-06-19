@@ -630,6 +630,29 @@ function drawHumanoid(
     diveSy /= dl;
   }
 
+  // Sliding tackle: a grounded full-body lay-out along the slide direction.
+  // Like the keeper dive it ramps from upright to horizontal, but it stays on
+  // the turf (no airborne lift) and recovers to a sit-up over the pose.
+  const sliding = (p.slideTimer ?? 0) > 0;
+  const slideT = sliding ? clamp(1 - (p.slideTimer ?? 0) / 0.7, 0, 1) : 0;
+  // Lay flat fast during the lunge, then sit back up through the recovery.
+  const slideLayout = sliding
+    ? slideT < 0.45
+      ? Math.sin((slideT / 0.45) * (Math.PI / 2))
+      : Math.cos(((slideT - 0.45) / 0.55) * (Math.PI / 2)) * 0.85 + 0.15
+    : 0;
+  let slideSx = 0;
+  let slideSy = 0;
+  if (sliding) {
+    const sd = p.slideDir ?? p.facing;
+    const qs = proj(p.x + sd.x * 40, p.y + sd.y * 40);
+    slideSx = qs.x - q.x;
+    slideSy = qs.y - q.y;
+    const sl = Math.hypot(slideSx, slideSy) || 1;
+    slideSx /= sl;
+    slideSy /= sl;
+  }
+
   const fx = p.facing.x;
   const fy = p.facing.y;
   // Horizontal mirror: face left or right on screen.
@@ -640,14 +663,15 @@ function drawHumanoid(
   // Ground decorations (not scaled by ctx transform — drawn in screen px).
   const gs = s * PLAYER_SCALE;
 
-  // Shadow (fades and spreads as a diving keeper leaves the ground).
+  // Shadow (fades and spreads as a diving keeper leaves the ground; a slide
+  // stays grounded so the shadow just stretches along the slide direction).
   ctx.fillStyle = `rgba(0,0,0,${0.28 - diveAirborne * 0.18})`;
   ctx.beginPath();
   ctx.ellipse(
-    q.x + 2 * gs + diveSx * diveLayout * 13 * gs,
-    q.y + 1.5 * gs + diveSy * diveLayout * 13 * gs,
-    (11 + Math.abs(diveSx) * diveLayout * 6) * gs,
-    (4 + Math.abs(diveSy) * diveLayout * 3) * gs,
+    q.x + 2 * gs + diveSx * diveLayout * 13 * gs + slideSx * slideLayout * 13 * gs,
+    q.y + 1.5 * gs + diveSy * diveLayout * 13 * gs + slideSy * slideLayout * 13 * gs,
+    (11 + (Math.abs(diveSx) * diveLayout + Math.abs(slideSx) * slideLayout) * 6) * gs,
+    (4 + (Math.abs(diveSy) * diveLayout + Math.abs(slideSy) * slideLayout) * 3) * gs,
     0,
     0,
     Math.PI * 2,
@@ -664,6 +688,11 @@ function drawHumanoid(
     // (small screen-x component) reads as a leap with a gentle lean.
     ctx.translate(diveSx * diveLayout * 13, diveSy * diveLayout * 13 - diveAirborne * 9);
     ctx.rotate(diveSx * diveLayout * 1.5);
+  } else if (sliding) {
+    // Lay the body out flat along the projected slide direction, sliding
+    // forward and staying low on the turf — no airborne lift.
+    ctx.translate(slideSx * slideLayout * 14, slideSy * slideLayout * 14 - slideLayout * 4);
+    ctx.rotate(slideSx * slideLayout * 1.45);
   } else {
     // Lean into the run direction for a sense of momentum.
     const lean = moving ? clamp(p.vx / SPRINT_SPEED, -1, 1) * 0.13 : 0;

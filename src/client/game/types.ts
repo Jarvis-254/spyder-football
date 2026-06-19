@@ -39,6 +39,10 @@ export interface PlayerEntity {
   diveDir?: number;
   /** Lockout so a keeper doesn't re-trigger a dive every frame. */
   diveCooldown?: number;
+  /** > 0 while playing the grounded sliding-tackle pose (full-body lay-out). */
+  slideTimer?: number;
+  /** Direction the slide is committed along, in field coordinates. */
+  slideDir?: Vec;
   /** True while this player is holding the ball overhead for a throw-in. */
   throwing?: boolean;
 }

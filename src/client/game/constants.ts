@@ -77,6 +77,10 @@ export const PRESS_SPEED = 204;
 export const JOCKEY_SPEED = 150;
 /** Burst speed of the standing-tackle lunge (D without the ball). */
 export const TACKLE_LUNGE_SPEED = 260;
+/** Burst speed of the committed sliding tackle (Space). Faster and longer-range
+ *  than the standing tackle — it covers ground — but leaves you grounded and
+ *  out of the play for ~0.7s if you commit (FIFA's high-risk/high-reward slide). */
+export const SLIDE_LUNGE_SPEED = 330;
 /** Carrying the ball is slower than running freely — a real dribble penalty.
  *  Applied to the carrier's top speed so a free defender can run you down.
  *  0.90 ≈ a real high-speed dribble keeps ~90% of free-sprint pace. */

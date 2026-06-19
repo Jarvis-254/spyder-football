@@ -27,6 +27,7 @@ import {
   PRESS_SPEED,
   JOCKEY_SPEED,
   TACKLE_LUNGE_SPEED,
+  SLIDE_LUNGE_SPEED,
   CONTROL_DIST,
   BALL_DECAY,
   CHARGE_FULL,
@@ -63,7 +64,7 @@ export type { HudState } from './types';
 export { CANVAS_W, CANVAS_H } from './constants';
 
 const KICK_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD']);
-const ACTION_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ']);
+const ACTION_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ', 'Space']);
 const MOVE_KEYS = new Set([
   'ArrowUp',
   'ArrowDown',
@@ -134,6 +135,8 @@ export class PitchKickGame {
   private tackleTimer = 0;
   private tackleCooldown = 0;
   private tackleDir: Vec = { x: 1, y: 0 };
+  /** Sliding tackle (Space off the ball): commit cooldown after a slide. */
+  private slideCooldown = 0;
   /** Shared cooldown so CPU defenders don't spam poke-tackles every frame. */
   private cpuTackleCd = 0;
   /** Accumulated body-contact time on the carrier (auto jostle steal). */
@@ -344,6 +347,10 @@ export class PitchKickGame {
     this.offsideFlags.clear();
     this.tackleTimer = 0;
     this.tackleCooldown = 0;
+    this.slideCooldown = 0;
+    for (const pl of [...this.homePlayers, ...this.awayPlayers]) {
+      pl.slideTimer = 0;
+    }
     this.jostle = 0;
     this.freeze = 0.9;
     this.celebration = 0;
@@ -492,6 +499,7 @@ export class PitchKickGame {
     if (this.cpuDecision > 0) this.cpuDecision -= dt;
     if (this.stealProtect > 0) this.stealProtect -= dt;
     if (this.tackleCooldown > 0) this.tackleCooldown -= dt;
+    if (this.slideCooldown > 0) this.slideCooldown -= dt;
     if (this.cpuTackleCd > 0) this.cpuTackleCd -= dt;
     if (this.dispossessedTimer > 0) {
       this.dispossessedTimer -= dt;
@@ -501,6 +509,7 @@ export class PitchKickGame {
       if (p.kickTimer > 0) p.kickTimer -= dt;
       if (p.diveTimer && p.diveTimer > 0) p.diveTimer -= dt;
       if (p.diveCooldown && p.diveCooldown > 0) p.diveCooldown -= dt;
+      if (p.slideTimer && p.slideTimer > 0) p.slideTimer -= dt;
     }
     if (this.netRipple.left > 0) this.netRipple.left = Math.max(0, this.netRipple.left - dt * 0.6);
     if (this.netRipple.right > 0) this.netRipple.right = Math.max(0, this.netRipple.right - dt * 0.6);
@@ -732,11 +741,42 @@ export class PitchKickGame {
     const incoming =
       !owns && this.owner === null && this.lastKicker?.team === 'home';
 
+    // True while we're already committed to a slide — locks out other inputs
+    // (you can't change your mind mid-slide; that's the FIFA risk).
+    const sliding = (p.slideTimer ?? 0) > 0;
+
+    // Space without the ball = sliding tackle (FIFA): a fully committed,
+    // long-range lunge along your current heading. Wins the ball over more
+    // ground than a standing tackle, but leaves you grounded and out of the
+    // play through the recovery if you mistime it. Suppressed while our own
+    // pass is incoming and while already sliding.
+    if (
+      !owns &&
+      !incoming &&
+      !sliding &&
+      this.slideCooldown <= 0 &&
+      this.justPressed.includes('Space')
+    ) {
+      // Slide along where we're already running; if we're near-stationary,
+      // slide straight at the ball's anticipated position instead.
+      let sx = p.vx;
+      let sy = p.vy;
+      if (len(sx, sy) < 40) {
+        sx = this.ball.x + this.ball.vx * 0.12 - p.x;
+        sy = this.ball.y + this.ball.vy * 0.12 - p.y;
+      }
+      const sl = len(sx, sy) || 1;
+      p.slideDir = { x: sx / sl, y: sy / sl };
+      p.slideTimer = 0.7;
+      this.slideCooldown = 1.5;
+      p.facing = { ...p.slideDir };
+    }
+
     // W without the ball = "rush keeper out" (FIFA): send your goalkeeper
     // charging off his line to claim/smother the ball. Only meaningful when
     // we're defending (not while our own pass is incoming, where W is a
     // buffered first-time through-ball).
-    if (!owns && !incoming) {
+    if (!owns && !incoming && !sliding) {
       // A tap commits the keeper to a charge; HOLDING W keeps him out (FIFA's
       // hold-to-rush) so he doesn't back-pedal to his line mid-charge.
       if (this.justPressed.includes('KeyW')) this.gkRush = 1.5;
@@ -749,6 +789,7 @@ export class PitchKickGame {
     if (
       !owns &&
       !incoming &&
+      !sliding &&
       this.tackleCooldown <= 0 &&
       this.justPressed.includes('KeyD')
     ) {
@@ -763,7 +804,31 @@ export class PitchKickGame {
 
     const containing = this.keys.has('KeyC') && !owns;
 
-    if (this.tackleTimer > 0) {
+    if (sliding) {
+      // Sliding tackle. The first ~0.3s is the committed lunge: the body
+      // skims along slideDir at a decaying fraction of SLIDE_LUNGE_SPEED and
+      // pokes the ball loose over a longer reach than a standing tackle. The
+      // remaining ~0.4s is the grounded recovery: no steering, no input, no
+      // tackle — you're a sitting duck if you missed (FIFA's slide risk).
+      const dir = p.slideDir ?? { x: p.facing.x, y: p.facing.y };
+      const t = p.slideTimer ?? 0;
+      if (t > 0.4) {
+        // Lunge phase: ease the burst off as the slide plays out so it reads
+        // as a body skidding to a halt rather than a constant-speed dash.
+        const frac = 0.45 + 0.55 * ((t - 0.4) / 0.3);
+        this.steer(
+          p,
+          dir.x * SLIDE_LUNGE_SPEED * frac,
+          dir.y * SLIDE_LUNGE_SPEED * frac,
+          dt,
+          ACCEL * 1.6,
+        );
+        this.pokeTackle(p, CONTROL_DIST + 30, false);
+      } else {
+        // Recovery phase: friction the body to a stop, no control.
+        this.steer(p, 0, 0, dt);
+      }
+    } else if (this.tackleTimer > 0) {
       // Mid-lunge: burst toward the ball and poke it loose on contact.
       this.tackleTimer -= dt;
       this.steer(
