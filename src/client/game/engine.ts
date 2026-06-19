@@ -2318,8 +2318,11 @@ export class PitchKickGame {
       // facing the ball is battling for it — from ANY side. You can't shield a
       // chaser off forever, so a defender glued to your back (or alongside) is
       // a valid challenger here (requireBallSide=false). Sustained contact then
-      // wins it below, scaled by PHYSICALITY.
-      if (d < o.r + q.r + 11 && d < bestD && this.canTackle(q, o, false)) {
+      // wins it below, scaled by PHYSICALITY. The threshold is TIGHT (+3) so the
+      // timer only accrues once the defender is genuinely on the carrier's back
+      // (centre gap ~3px ≈ shoulders touching) — a looser gap let the steal fire
+      // while the defender still hung half a metre off the back.
+      if (d < o.r + q.r + 3 && d < bestD && this.canTackle(q, o, false)) {
         bestD = d;
         challenger = q;
       }

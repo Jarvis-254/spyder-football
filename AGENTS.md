@@ -834,7 +834,7 @@ game state yet (no Stores/queries for gameplay).
     KeyC added to MOVE_KEYS (hold key, no justPressed).
   - Auto jostle (`updateJostle`, runs before resolvePossession, both teams):
     nearest opposing non-GK in body contact with the carrier (centre dist <
-    r+r+11, widened in v4) accumulates `jostle` += dt (decays 2.5x when no
+    r+r+3 — TIGHTENED in v4.2 from +11, see below) accumulates `jostle` += dt (decays 2.5x when no
     contact / protected); at 0.5s the challenger pokes the ball loose
     automatically. Challenger qualifies via `canTackle(q, o, false)` — any
     side, so a defender on the carrier's back wins it; the WIN call is
@@ -849,6 +849,14 @@ game state yet (no Stores/queries for gameplay).
     forever. Now the jostle win passes false, so a back-turned shield actually
     loses the ball after ~0.5s of body contact. (The chaser already catches up:
     walking carry ≈ WALK 128 ×pace×dribble ≈115 px/s vs AWAY_CHASE 204.)
+  - TACKLE-FIX v4.2 (user: "the defender is still FAR from my back when they
+    win it"): the jostle contact threshold was r+r+11 ≈ 33px centre dist, which
+    with PLAYER_R≈11 left ~11px (≈0.5m) of daylight when the steal fired.
+    Tightened to r+r+3 (≈25px) so the timer only accrues once the defender is
+    genuinely shoulder-to-shoulder. separatePlayers() floors centre dist at
+    r+r-4 (≈18px) and `driveToward` keeps barging the chaser in, so the gap
+    closes to touching well inside the 0.5s window — the ball now pops with the
+    defender visibly on the carrier's back, not hanging off it.
   - TACKLE-FIX v4 CHASE-INTO-CONTACT: `moveToward` decelerates within 36px of
     its target, so chasers used to hover ~6px behind the carrier and never make
     body contact (no jostle, no steal). New `driveToward(p, t, speed, dt)` is a
