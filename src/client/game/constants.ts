@@ -48,21 +48,29 @@ export const BOUNCE = 0.58; // vertical restitution on landing
 export const CONTROL_HEIGHT = M(1.25);
 
 // ---- Movement speeds ------------------------------------------------------
-// Tuned down from the first prototype — calmer, more readable pace.
-export const WALK_SPEED = 165;
-export const SPRINT_SPEED = 255;
-export const TEAMMATE_SPEED = 155;
-export const AWAY_CHASE_SPEED = 180;
-export const AWAY_CARRY_SPEED = 165;
-export const AWAY_FORMATION_SPEED = 140;
+// Tuned toward real-life pace & dynamics (a sprint is ~10 m/s, a jog ~7 m/s).
+// The key relationship: a player CARRYING the ball (DRIBBLE_MULT) is slower
+// than a free runner, and a defender chasing/pressing runs at near-sprint — so
+// you can't just knock it past everyone and outrun the whole pitch to goal.
+export const WALK_SPEED = 150;
+export const SPRINT_SPEED = 228;
+export const TEAMMATE_SPEED = 150;
+/** A chasing defender genuinely sprints after the ball (was a slow jog). */
+export const AWAY_CHASE_SPEED = 220;
+/** The CPU carrier dribbles at the (penalised) carrying pace. */
+export const AWAY_CARRY_SPEED = 192;
+export const AWAY_FORMATION_SPEED = 138;
 /** Off-ball forward runs in behind (both teams). */
-export const RUN_SPEED = 200;
-/** Closing down the carrier / tracking a marked attacker. */
-export const PRESS_SPEED = 200;
+export const RUN_SPEED = 205;
+/** Closing down the carrier / tracking a marked attacker — a real sprint. */
+export const PRESS_SPEED = 220;
 /** Contain (hold C): jockey speed while shadowing the carrier. */
-export const JOCKEY_SPEED = 180;
+export const JOCKEY_SPEED = 172;
 /** Burst speed of the standing-tackle lunge (D without the ball). */
-export const TACKLE_LUNGE_SPEED = 310;
+export const TACKLE_LUNGE_SPEED = 300;
+/** Carrying the ball is slower than running freely — a real dribble penalty.
+ *  Applied to the carrier's top speed so a free defender can run you down. */
+export const DRIBBLE_MULT = 0.83;
 export const CONTROL_DIST = PLAYER_R + BALL_R + 16; // ball "at feet" reach ≈ 1.4 m
 /** Ball rolling friction (exponential decay per second). A kick at power v
  *  rolls v/BALL_DECAY px total — pass powers MUST account for this. */
@@ -85,10 +93,15 @@ export const MATCH_DISPLAY_SECS = 90 * 60; // 90' shown on the clock at full tim
 export const MATCH_REAL_SECS = 180; // real seconds a match actually lasts
 
 // ---- Steering -------------------------------------------------------------
-/** How quickly velocity approaches the desired velocity (per second). */
-export const ACCEL = 8;
+/** How quickly velocity approaches the desired velocity (per second). Lower =
+ *  more inertia: a player can't instantly reverse or hit full pace from a
+ *  standstill, momentum carries them (real-life / FIFA weight). */
+export const ACCEL = 5.5;
+/** Acceleration while carrying the ball — heavier still, so a dribbler can't
+ *  jink as sharply as a free runner. */
+export const DRIBBLE_ACCEL = 4.6;
 /** Max turn rate in radians per second. */
-export const TURN_RATE = 13;
+export const TURN_RATE = 10;
 
 // ---- Cosmetic palettes ----------------------------------------------------
 export const HAIR_COLORS = ['#2b2118', '#0e0c0a', '#5a3b1e', '#857058'];

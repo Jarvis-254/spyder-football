@@ -34,6 +34,8 @@ import {
   MATCH_DISPLAY_SECS,
   MATCH_REAL_SECS,
   ACCEL,
+  DRIBBLE_ACCEL,
+  DRIBBLE_MULT,
   TURN_RATE,
   HAIR_COLORS,
   SKIN_TONES,
@@ -120,6 +122,8 @@ export class PitchKickGame {
   private tackleTimer = 0;
   private tackleCooldown = 0;
   private tackleDir: Vec = { x: 1, y: 0 };
+  /** Shared cooldown so CPU defenders don't spam poke-tackles every frame. */
+  private cpuTackleCd = 0;
   /** Accumulated body-contact time on the carrier (auto jostle steal). */
   private jostle = 0;
   /** Grace window right after a kick: the ball is "in flight" and NOBODY can
@@ -387,9 +391,16 @@ export class PitchKickGame {
 
   // ---- movement helpers ---------------------------------------------------
 
-  /** Smoothly steer a player toward a desired velocity (inertia + turning). */
-  private steer(p: PlayerEntity, targetVx: number, targetVy: number, dt: number) {
-    const k = 1 - Math.exp(-ACCEL * dt);
+  /** Smoothly steer a player toward a desired velocity (inertia + turning).
+   *  `accel` defaults to ACCEL; pass DRIBBLE_ACCEL for the heavier ball-carrier. */
+  private steer(
+    p: PlayerEntity,
+    targetVx: number,
+    targetVy: number,
+    dt: number,
+    accel: number = ACCEL,
+  ) {
+    const k = 1 - Math.exp(-accel * dt);
     p.vx += (targetVx - p.vx) * k;
     p.vy += (targetVy - p.vy) * k;
     p.x += p.vx * dt;
@@ -448,6 +459,7 @@ export class PitchKickGame {
     if (this.cpuDecision > 0) this.cpuDecision -= dt;
     if (this.stealProtect > 0) this.stealProtect -= dt;
     if (this.tackleCooldown > 0) this.tackleCooldown -= dt;
+    if (this.cpuTackleCd > 0) this.cpuTackleCd -= dt;
     if (this.dispossessedTimer > 0) {
       this.dispossessedTimer -= dt;
       if (this.dispossessedTimer <= 0) this.dispossessed = null;
@@ -771,6 +783,9 @@ export class PitchKickGame {
 
       const sprint = this.keys.has('KeyE');
       let speed = sprint ? SPRINT_SPEED : WALK_SPEED;
+      // Carrying the ball slows you down (real dribble penalty) — you can't
+      // knock it and outrun the whole pitch. A free defender can run you down.
+      if (owns) speed *= DRIBBLE_MULT;
       let hx = ix;
       let hy = iy;
 
@@ -845,7 +860,9 @@ export class PitchKickGame {
         tvx = (hx / hl) * speed;
         tvy = (hy / hl) * speed;
       }
-      this.steer(p, tvx, tvy, dt);
+      // The ball-carrier is heavier on the turn (DRIBBLE_ACCEL) — can't jink as
+      // sharply as a free runner.
+      this.steer(p, tvx, tvy, dt, owns ? DRIBBLE_ACCEL : ACCEL);
     }
 
     // FIFA-style kick charging + input buffering. Pressing a kick key starts
@@ -1654,10 +1671,18 @@ export class PitchKickGame {
           a !== owner && !a.isGK && Math.abs(a.x - defGoalX) < FIELD_W * 0.62,
       )
       .sort((a, b) => Math.abs(a.x - defGoalX) - Math.abs(b.x - defGoalX));
+    // Don't man-mark EVERY attacker — a real defence zonally covers and leaves
+    // space, so there's always an outlet to pass to. Mark only the most
+    // dangerous threats, leaving at least two attackers free; the rest hold a
+    // zonal block (offBallPlan). This was the main reason passing felt
+    // impossible — every teammate was glued to a marker.
+    const maxMarks = Math.max(1, threats.length - 2);
     const taken = new Set<PlayerEntity>();
     for (const threat of threats) {
+      if (this.markAssign.size >= maxMarks) break;
       let best: PlayerEntity | null = null;
-      let bestD = 320;
+      // Only commit to a man-mark when genuinely close (was 320 — too eager).
+      let bestD = 250;
       for (const def of defenders) {
         if (def.isGK || def === this.controlled || taken.has(def)) continue;
         const dd = dist(def, threat);
@@ -1673,7 +1698,7 @@ export class PitchKickGame {
     }
   }
 
-  /** Goal-side (slightly ball-side) marking spot 40px off the attacker. */
+  /** Goal-side (slightly ball-side) marking spot ~52px off the attacker. */
   private markTarget(d: PlayerEntity, threat: PlayerEntity): Vec {
     const goal = { x: d.team === 'home' ? 0 : FIELD_W, y: FIELD_H / 2 };
     const lg = len(goal.x - threat.x, goal.y - threat.y);
@@ -1685,9 +1710,11 @@ export class PitchKickGame {
     const mx = gx * 0.75 + bx * 0.25;
     const my = gy * 0.75 + by * 0.25;
     const ml = len(mx, my);
+    // Stand off a touch further (was 40) so the marked man can still be a
+    // passing option rather than being smothered — markers shouldn't be glued.
     return this.clampTarget({
-      x: threat.x + (mx / ml) * 40,
-      y: threat.y + (my / ml) * 40,
+      x: threat.x + (mx / ml) * 52,
+      y: threat.y + (my / ml) * 52,
     });
   }
 
@@ -1863,14 +1890,16 @@ export class PitchKickGame {
       // and screen the counter).
 
       // Get open: drift away from the nearest opponent near the spot so
-      // there's always a clean passing option.
+      // there's always a clean passing option. A wider bubble (was 95) makes
+      // off-ball players actively peel into space instead of standing on a
+      // marker — passing lanes open up.
       const pos = this.clampTarget(t);
       const opps = p.team === 'home' ? this.awayPlayers : this.homePlayers;
       const near = this.nearestTo(opps, pos);
       if (near) {
         const d = dist(near, pos);
-        if (d < 95) {
-          const push = 95 - d;
+        if (d < 130) {
+          const push = 130 - d;
           pos.x += ((pos.x - near.x) / (d || 1)) * push;
           pos.y += ((pos.y - near.y) / (d || 1)) * push;
         }
@@ -1927,6 +1956,19 @@ export class PitchKickGame {
       const sp =
         dist(p, plan.pos) > 240 ? Math.max(plan.speed, RUN_SPEED) : plan.speed;
       this.moveToward(p, plan.pos, sp, dt);
+    }
+
+    // Your AI teammates also commit tackles on the away carrier (so you aren't
+    // forced to switch + tackle manually for every challenge). Same realism
+    // gate + shared cooldown as the CPU side.
+    if (awayCarrier && this.cpuTackleCd <= 0) {
+      for (const p of this.homePlayers) {
+        if (p.isGK || p === this.controlled) continue;
+        if (this.pokeTackle(p, CONTROL_DIST + 10)) {
+          this.cpuTackleCd = 0.55;
+          break;
+        }
+      }
     }
   }
 
@@ -2003,15 +2045,29 @@ export class PitchKickGame {
     const chaser =
       carrier ?? this.nearestTo(outfield, this.ball) ?? this.awayPlayers[1];
 
+    // When the USER has the ball, the nearest CPU defender steps right onto him
+    // and commits a tackle — a defender in front of you should actually try to
+    // win it, not back off and let you stroll past.
+    const userCarrier =
+      this.owner && this.owner.team === 'home' && !this.owner.isGK
+        ? this.owner
+        : null;
+
     for (const p of this.awayPlayers) {
       if (p === carrier) {
         this.updateAwayCarrier(p, dt);
       } else if (p === chaser) {
-        // Chase the ball with slight anticipation.
-        const t = {
-          x: clamp(this.ball.x + this.ball.vx * 0.18, p.r, FIELD_W - p.r),
-          y: clamp(this.ball.y + this.ball.vy * 0.18, p.r, FIELD_H - p.r),
-        };
+        // Chase the ball with slight anticipation. When hunting the user's
+        // carrier, aim AT the man (a touch goal-side) and sprint to engage.
+        const t = userCarrier
+          ? {
+              x: clamp(userCarrier.x - 6, p.r, FIELD_W - p.r),
+              y: clamp(userCarrier.y, p.r, FIELD_H - p.r),
+            }
+          : {
+              x: clamp(this.ball.x + this.ball.vx * 0.18, p.r, FIELD_W - p.r),
+              y: clamp(this.ball.y + this.ball.vy * 0.18, p.r, FIELD_H - p.r),
+            };
         this.moveToward(p, t, AWAY_CHASE_SPEED, dt);
       } else {
         const plan = this.offBallPlan(p, AWAY_FORMATION_SPEED);
@@ -2020,6 +2076,20 @@ export class PitchKickGame {
             ? Math.max(plan.speed, RUN_SPEED)
             : plan.speed;
         this.moveToward(p, plan.pos, sp, dt);
+      }
+    }
+
+    // CPU tackling: any away outfielder who has got the ball into range pokes
+    // it off the user (on a shared cooldown so it isn't a frame-by-frame
+    // vacuum). pokeTackle already enforces the realism gate (must be ball-side
+    // and facing the ball — can't tackle from behind).
+    if (userCarrier && this.cpuTackleCd <= 0) {
+      for (const p of this.awayPlayers) {
+        if (p.isGK) continue;
+        if (this.pokeTackle(p, CONTROL_DIST + 10)) {
+          this.cpuTackleCd = 0.55;
+          break;
+        }
       }
     }
   }

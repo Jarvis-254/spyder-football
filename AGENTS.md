@@ -572,12 +572,41 @@ game state yet (no Stores/queries for gameplay).
   poses), LPC (4-dir 3/4 view) — procedural chosen deliberately.
 - Uses ctx.roundRect (Chrome 99+/modern browsers OK).
 
-### Movement feel (tuned for smoothness, v2)
-- Inertia: `steer()` lerps velocity toward target (`ACCEL=8`/s); facing
-  rotates at max `TURN_RATE=13` rad/s (`faceToward`). AI `moveToward`
-  decelerates within 36px of target to prevent orbiting.
-- Speeds (slowed from v1): walk 165, sprint 255, teammate 155, CPU chase
-  180 / carry 165 / formation 140. Shot power 660, CPU shot 640.
+### Movement feel (tuned for smoothness, v2 → realism pass v3)
+- Inertia: `steer(p, tvx, tvy, dt, accel=ACCEL)` lerps velocity toward target
+  via `k = 1 - exp(-accel*dt)`; facing rotates at max `TURN_RATE` rad/s
+  (`faceToward`). AI `moveToward` decelerates within 36px of target to prevent
+  orbiting. `steer` now takes an optional `accel` arg so the carrier can be
+  given heavier inertia than off-ball players.
+- REALISM PASS v3 (added after user: "too easy to run+score, passing too hard /
+  everyone marked, defenders don't tackle, players too agile / no inertia,
+  others don't sprint, overall too fast / ping-pong — bring close to real
+  life"). All interdependent, tuned together:
+  - INERTIA: `ACCEL` 8→5.5, `TURN_RATE` 13→10 (heavier, can't reverse
+    direction instantly). New `DRIBBLE_ACCEL=4.6` — carrier turns/accelerates
+    even heavier; passed as the `accel` arg in updateControlled's steer call
+    when `owns`.
+  - DRIBBLE PENALTY: new `DRIBBLE_MULT=0.83` multiplies the human carrier's
+    speed in updateControlled (`if (owns) speed *= DRIBBLE_MULT`) so you can't
+    just sprint past everyone with the ball. Effective dribble-sprint ≈
+    228×0.83 ≈ 189 < free sprint 228 < chasing defender AWAY_CHASE 220.
+  - SPEEDS compressed + defenders made to sprint: WALK 165→150, SPRINT 255→228,
+    TEAMMATE 155→150, AWAY_CHASE 180→220, AWAY_CARRY 165→192, AWAY_FORMATION
+    140→138, RUN 200→205, PRESS 200→220, JOCKEY 180→172, TACKLE_LUNGE 310→300.
+    Net effect: top speed lower (less ping-pong) but chasing/pressing defenders
+    actually keep up with / catch a dribbler.
+  - MARKING loosened so passing has outlets: `computeMarking` caps markers at
+    `maxMarks = max(1, threats.length - 2)` (always ≥2 attackers left free),
+    engage range 320→250, `markTarget` standoff 40→52, and the off-ball
+    "get-open" bubble in offBallPlan 95→130 (teammates peel further off
+    markers to show for a pass).
+  - ACTIVE TACKLING (defenders now win the ball, not just stand there): shared
+    `cpuTackleCd` field (0.55s, decremented in update()). updateAwayTeam: when
+    a human carrier exists, the chaser aims directly at the man (x-6) and after
+    the loop the nearest away outfielder runs `pokeTackle(p, CONTROL_DIST+10)`.
+    updateHomeTeammates mirrors this against an away carrier for AI teammates
+    (skips `controlled`). Both gated by `cpuTackleCd` so it's not a constant
+    every-frame strip.
 
 ### Gameplay model (current: 11v11)
 - Both teams: 11 players from the selected `TeamData.players` (index 0 = GK,
