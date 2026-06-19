@@ -837,8 +837,18 @@ game state yet (no Stores/queries for gameplay).
     r+r+11, widened in v4) accumulates `jostle` += dt (decays 2.5x when no
     contact / protected); at 0.5s the challenger pokes the ball loose
     automatically. Challenger qualifies via `canTackle(q, o, false)` — any
-    side, so a defender on the carrier's back wins it. `jostle` reset on
-    possession change, kickoff and successful pokes.
+    side, so a defender on the carrier's back wins it; the WIN call is
+    `pokeTackle(challenger, Infinity, false)`. `jostle` reset on possession
+    change, kickoff and successful pokes.
+  - TACKLE-FIX v4.1 (user: "I can STILL run away without sprinting by keeping
+    my back turned"): `pokeTackle` now takes a `requireBallSide=true` param it
+    forwards to canTackle. The earlier v4 fix qualified the behind-challenger
+    with requireBallSide=false but then the jostle's WIN still called
+    `pokeTackle(challenger, Infinity)` with the DEFAULT true — so the steal was
+    silently re-rejected by the ball-side gate and the carrier could shield
+    forever. Now the jostle win passes false, so a back-turned shield actually
+    loses the ball after ~0.5s of body contact. (The chaser already catches up:
+    walking carry ≈ WALK 128 ×pace×dribble ≈115 px/s vs AWAY_CHASE 204.)
   - TACKLE-FIX v4 CHASE-INTO-CONTACT: `moveToward` decelerates within 36px of
     its target, so chasers used to hover ~6px behind the carrier and never make
     body contact (no jostle, no steal). New `driveToward(p, t, speed, dt)` is a

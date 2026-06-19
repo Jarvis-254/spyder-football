@@ -2269,7 +2269,11 @@ export class PitchKickGame {
    * possession resolution then awards it — triggering the tackle-won
    * protection / dispossession lockout. Returns true if the poke connected.
    */
-  private pokeTackle(tackler: PlayerEntity, reach: number): boolean {
+  private pokeTackle(
+    tackler: PlayerEntity,
+    reach: number,
+    requireBallSide = true,
+  ): boolean {
     const carrier = this.owner;
     if (!carrier || carrier.team === tackler.team || carrier.isGK)
       return false;
@@ -2278,7 +2282,7 @@ export class PitchKickGame {
     // from a touch further out and times the challenge better.
     if (dist(tackler, this.ball) > reach * tackleReachMul(tackler.ratings))
       return false;
-    if (!this.canTackle(tackler, carrier)) return false;
+    if (!this.canTackle(tackler, carrier, requireBallSide)) return false;
 
     const dx = tackler.x - carrier.x;
     const dy = tackler.y - carrier.y;
@@ -2329,7 +2333,11 @@ export class PitchKickGame {
     this.jostle += dt * duelRate(challenger.ratings, o.ratings);
     if (this.jostle < 0.5) return;
     // Contact sustained long enough — the challenger muscles the ball away.
-    this.pokeTackle(challenger, Infinity);
+    // Pass requireBallSide=false: a body-contact battle wins from ANY side
+    // (the challenger was already qualified that way above). Without this the
+    // steal would be silently rejected by pokeTackle's default ball-side gate,
+    // letting the carrier shield forever by keeping his back turned.
+    this.pokeTackle(challenger, Infinity, false);
   }
 
   private resolvePossession() {
