@@ -804,10 +804,17 @@ game state yet (no Stores/queries for gameplay).
   isn't limp and a full-charge drive doesn't rocket past the target); launch caps
   lowered short 880→780, through 1050→920 (≈134/158 km/h ground-pass ceiling).
   SHOTS:
-  loft uses an APEX-HEIGHT model: shotApex=clamp(M(0.1)+charge²*M(2.3),0,M(2.35)),
-  loft=sqrt(2*GRAVITY*shotApex). The apex scales with charge² so most shots stay
-  LOW/driven and only a well-charged strike climbs. CPU shot uses a fixed low
-  apex M(0.7). This REPLACED the old fixed loft=M(4)+charge*M(9.5) (and the CPU's
+  POWER = (400+560*charge)*shotPowerMul: tap ~400 px/s ≈69 km/h (gentle roll),
+  full ~960 ≈165 km/h (screamer, slightly arcade). WIDE ~2.4× range (was a narrow
+  1.8× / (400+330*charge) that felt the same + too weak per user "shots seem too
+  weak, they all fly the same; weak shots should be purely on ground, strongest
+  fly more"). LOFT is tied to power via apex-height: liftCharge=clamp((charge-
+  0.25)/0.75,0,1), shotApex=min(liftCharge²*M(2.7),M(2.35)), loft=sqrt(2*GRAVITY*
+  shotApex) (0 when apex 0). So charge<0.25 = PURELY GROUNDED roll (loft 0), and
+  loft climbs steeply after, a full strike flying ~M(2.35) just under the bar,
+  apex reached ~20m out so it's still RISING at the line. (Replaced the earlier
+  shotApex=M(0.1)+charge²*M(2.3) which never fully grounded the weak shots.)
+  CPU shot uses a fixed low apex M(0.7). This REPLACED the old fixed loft=M(4)+charge*M(9.5) (and the CPU's
   flat M(8)) on user note "the shot is always in the same arc — it's rare to see
   shots go up and down into goal; usually they're mostly on ground or going up
   and up. Is your physics right?". ROOT CAUSE: the integration was correct but

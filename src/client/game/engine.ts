@@ -1122,22 +1122,24 @@ export class PitchKickGame {
     }
 
     // Charge controls shot power across a REAL-LIFE-ANCHORED range (px/s via
-    // PX_PER_M=20.95, ×0.172 = km/h): a placed side-foot (charge 0) leaves the
-    // boot at 400 px/s ≈ 69 km/h, a full-power blast (charge 1, avg striker)
-    // at 730 px/s ≈ 125 km/h, and an elite finisher (shotPowerMul ~1.10) tops
-    // out near 137 km/h — matching the hardest real strikes, not the old
-    // 230 km/h cannon. Harder shots rise more — a full blast lifts toward
-    // the top corners, while a placed side-foot stays low and skims the turf.
-    // `loft` is the UPWARD launch velocity (px/s). Rather than a FIXED arc (which
-    // made every shot the same up-and-over lob regardless of range), we pick the
-    // APEX HEIGHT the shot should reach and solve loft = sqrt(2·GRAVITY·apex).
-    // The apex scales with charge² so most shots stay LOW and driven — only a
-    // well-charged strike climbs. With the (now realistic) GRAVITY the apex is
-    // reached ~18–20m away, so from a typical shooting position the ball is still
-    // RISING as it crosses the line (a real driven/rising shot), not dropping in.
-    // apex is capped just under the M(2.44) bar so the peak can't sail over.
-    const shotApex = clamp(M(0.1) + charge * charge * M(2.3), 0, M(2.35));
-    const loft = Math.sqrt(2 * GRAVITY * shotApex);
+    // PX_PER_M=20.95, ×0.172 = km/h. POWER spans a WIDE, clearly-felt range so
+    // a tap and a full blast feel completely different: a placed shot (charge 0)
+    // leaves the boot at ~400 px/s ≈ 69 km/h (a gentle roll), a full-power strike
+    // (charge 1) at ~960 px/s ≈ 165 km/h (a screamer; a touch arcade for feel),
+    // an elite finisher a bit more. Ratio ~2.4× tap→full, vs the old narrow 1.8×
+    // that made every shot feel the same. shotPowerMul tilts it per striker.
+    const power = (400 + 560 * charge) * shotPowerMul(kicker.ratings);
+    // `loft` is the UPWARD launch velocity (px/s), solved from a target APEX
+    // HEIGHT: loft = sqrt(2·GRAVITY·apex). Loft is TIED TO POWER so weak and
+    // strong shots look different — a WEAK shot stays PURELY on the ground
+    // (apex 0, the ball just rolls) and only once you charge past ~0.25 does it
+    // start to climb, a full-power strike flying high toward the top corners.
+    // With the realistic GRAVITY the apex is reached ~20m out, so from a normal
+    // shooting position a hard shot is still RISING as it crosses the line.
+    // Capped just under the M(2.44) bar so the peak can't sail over.
+    const liftCharge = clamp((charge - 0.25) / 0.75, 0, 1);
+    const shotApex = Math.min(liftCharge * liftCharge * M(2.7), M(2.35));
+    const loft = shotApex > 0 ? Math.sqrt(2 * GRAVITY * shotApex) : 0;
     // Shots scatter — and the harder you hit it, the LESS precise it is (FIFA:
     // a power blast can fly wide of the post, while a placed side-foot is far
     // tighter). The charge term dominates so full-power efforts genuinely miss
@@ -1147,7 +1149,7 @@ export class PitchKickGame {
     const shotSpread = (0.06 + charge * 0.2) * shotSpreadMul(kicker.ratings);
     this.kickBallToward(
       { x: goalX, y: bestY },
-      (400 + 330 * charge) * shotPowerMul(kicker.ratings),
+      power,
       kicker,
       loft,
       shotSpread,
