@@ -880,13 +880,17 @@ game state yet (no Stores/queries for gameplay).
     TACKLE_LUNGE_SPEED=310 toward ball+vel*0.1 (`tackleDir`), poking with
     reach CONTROL_DIST+18 each frame; `tackleCooldown=0.8s` commit (whiff =
     beaten). D WITH ball still charges a shot (charge starts only if owns).
-  - Space with NO ball = SLIDING TACKLE (FIFA-style high-risk/high-reward,
-    added on user request "add a sliding tackle just like in Fifa"). A fully
-    committed, longer-range lunge along your CURRENT heading (falls back to
-    ball+vel*0.12 if near-stationary). Per-player `slideTimer=0.7s` +
-    `slideDir` (PlayerEntity, types.ts); engine `slideCooldown=1.5s`. 'Space'
-    added to ACTION_KEYS (already in MOVE_KEYS for preventDefault) so
-    justPressed captures it. Two phases in updateControlled (FIRST branch in
+  - A with NO ball = SLIDING TACKLE (FIFA-style high-risk/high-reward,
+    added on user request "add a sliding tackle just like in Fifa"; A/circle is
+    the long pass ON the ball, the slide OFF it — overload, trigger guarded by
+    `!owns && !incoming`). Was on Space, moved to KeyA on user note "why is
+    sliding tackle space??? it is supposed to be A" (Space removed from ACTION_/
+    MOVE_KEYS). A fully committed, longer-range lunge along your CURRENT heading
+    (falls back to ball+vel*0.12 if near-stationary). Per-player `slideTimer=0.7s`
+    + `slideDir` (PlayerEntity, types.ts); engine `slideCooldown=1.5s`. KeyA is
+    already in KICK_KEYS/ACTION_KEYS so justPressed captures it; the charge logic
+    only starts on a kick key if (owns||incoming) so A off the ball won't charge a
+    pass, it slides. Two phases in updateControlled (FIRST branch in
     the movement chain, gated by `sliding`): lunge while slideTimer>0.4s —
     steer along slideDir at SLIDE_LUNGE_SPEED=330 ×decaying-frac with
     ACCEL*1.6, `pokeTackle(p, CONTROL_DIST+30, false)` (longer reach, ball-side

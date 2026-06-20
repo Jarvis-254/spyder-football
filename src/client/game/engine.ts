@@ -64,7 +64,7 @@ export type { HudState } from './types';
 export { CANVAS_W, CANVAS_H } from './constants';
 
 const KICK_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD']);
-const ACTION_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ', 'Space']);
+const ACTION_KEYS = new Set(['KeyW', 'KeyS', 'KeyA', 'KeyD', 'KeyQ']);
 const MOVE_KEYS = new Set([
   'ArrowUp',
   'ArrowDown',
@@ -72,7 +72,6 @@ const MOVE_KEYS = new Set([
   'ArrowRight',
   'KeyE',
   'KeyC',
-  'Space',
 ]);
 
 // Team line-ups are no longer hardcoded here — they come from the two
@@ -745,17 +744,18 @@ export class PitchKickGame {
     // (you can't change your mind mid-slide; that's the FIFA risk).
     const sliding = (p.slideTimer ?? 0) > 0;
 
-    // Space without the ball = sliding tackle (FIFA): a fully committed,
-    // long-range lunge along your current heading. Wins the ball over more
-    // ground than a standing tackle, but leaves you grounded and out of the
-    // play through the recovery if you mistime it. Suppressed while our own
-    // pass is incoming and while already sliding.
+    // A without the ball = sliding tackle (FIFA: A/circle is the long pass on
+    // the ball, the slide tackle off it). A fully committed, long-range lunge
+    // along your current heading. Wins the ball over more ground than a standing
+    // tackle, but leaves you grounded and out of the play through the recovery if
+    // you mistime it. Suppressed while our own pass is incoming (where A is a
+    // buffered first-time long ball) and while already sliding.
     if (
       !owns &&
       !incoming &&
       !sliding &&
       this.slideCooldown <= 0 &&
-      this.justPressed.includes('Space')
+      this.justPressed.includes('KeyA')
     ) {
       // Slide along where we're already running; if we're near-stationary,
       // slide straight at the ball's anticipated position instead.
