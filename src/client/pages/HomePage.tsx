@@ -241,24 +241,24 @@ export default function HomePage() {
         {/* Team-select overlay */}
         {phase === 'select' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-night-950/92 backdrop-blur-sm animate-fade-in px-4">
-            <h2 className="font-display text-4xl sm:text-5xl text-white tracking-wide mb-1">
+            <h2 className="font-display text-5xl sm:text-6xl text-white tracking-wide mb-2">
               SELECT <span className="text-volt-500">TEAMS</span>
             </h2>
-            <p className="font-body text-night-300 text-sm mb-4 text-center">
+            <p className="font-body text-night-300 text-base sm:text-lg mb-6 text-center">
               <span className="text-volt-400 font-semibold">← →</span> to choose
               ·{' '}
               <span className="text-volt-400 font-semibold">Enter / S / D</span>{' '}
               to confirm
             </p>
             {initialMatch && <FixtureBanner match={initialMatch} />}
-            <div className="flex items-stretch gap-4 sm:gap-8">
+            <div className="flex items-stretch gap-6 sm:gap-12">
               <TeamCrest
                 team={home}
                 tag="YOU"
                 active={activeSide === 'home'}
                 locked={activeSide === 'away'}
               />
-              <div className="flex items-center font-display text-3xl text-night-500">
+              <div className="flex items-center font-display text-4xl sm:text-5xl text-night-500">
                 VS
               </div>
               <TeamCrest
@@ -313,9 +313,9 @@ function FixtureBanner({ match }: { match: Match }) {
     minute: '2-digit',
   });
   return (
-    <div className="mb-4 flex items-center gap-3 px-4 py-2 rounded-xl bg-night-900/80 border border-night-800 animate-fade-in">
+    <div className="mb-6 flex items-center gap-4 px-5 py-3 rounded-xl bg-night-900/80 border border-night-800 animate-fade-in">
       <span
-        className={`font-heading text-[10px] uppercase tracking-[0.25em] px-2 py-0.5 rounded ${
+        className={`font-heading text-xs uppercase tracking-[0.25em] px-2.5 py-1 rounded ${
           live
             ? 'bg-rose-500/90 text-white animate-pulse'
             : 'bg-volt-500 text-night-950'
@@ -323,11 +323,11 @@ function FixtureBanner({ match }: { match: Match }) {
       >
         {live ? 'Live now' : 'Next up'}
       </span>
-      <span className="font-heading uppercase tracking-wider text-xs text-night-300">
+      <span className="font-heading uppercase tracking-wider text-sm text-night-300">
         WC&nbsp;2026 · Group&nbsp;{match.group}
       </span>
-      <span className="font-body text-xs text-night-300">·</span>
-      <span className="font-body text-xs text-white tabular-nums">{time}</span>
+      <span className="font-body text-sm text-night-300">·</span>
+      <span className="font-body text-sm text-white tabular-nums">{time}</span>
     </div>
   );
 }
@@ -344,23 +344,23 @@ function TeamCrest({
   locked: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 w-44 sm:w-52">
+    <div className="flex flex-col items-center gap-4 w-56 sm:w-64">
       <span
-        className={`font-heading uppercase tracking-[0.3em] text-xs ${
+        className={`font-heading uppercase tracking-[0.3em] text-sm ${
           active ? 'text-volt-400' : 'text-night-300'
         }`}
       >
         {tag}
       </span>
-      <div className="flex items-center gap-1 sm:gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         <ChevronLeft
-          size={26}
+          size={36}
           className={`shrink-0 transition-opacity ${
             active ? 'text-volt-500 animate-pulse' : 'text-transparent'
           }`}
         />
         <div
-          className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl w-28 h-32 sm:w-32 sm:h-36 transition-all ${
+          className={`relative flex flex-col items-center justify-center overflow-hidden rounded-2xl w-40 h-48 sm:w-44 sm:h-52 transition-all ${
             active
               ? 'ring-4 ring-volt-500 scale-105 shadow-xl shadow-black/40'
               : locked
@@ -372,20 +372,20 @@ function TeamCrest({
           }}
         >
           {locked && (
-            <span className="absolute top-2 right-2 bg-volt-500 text-night-950 rounded-full p-0.5 z-10">
-              <Check size={14} strokeWidth={3} />
+            <span className="absolute top-2 right-2 bg-volt-500 text-night-950 rounded-full p-1 z-10">
+              <Check size={18} strokeWidth={3} />
             </span>
           )}
           <KitJersey kit={team.kit} />
         </div>
         <ChevronRight
-          size={26}
+          size={36}
           className={`shrink-0 transition-opacity ${
             active ? 'text-volt-500 animate-pulse' : 'text-transparent'
           }`}
         />
       </div>
-      <span className="font-heading uppercase tracking-wider text-lg sm:text-xl text-white text-center leading-tight">
+      <span className="font-heading uppercase tracking-wider text-2xl sm:text-3xl text-white text-center leading-tight">
         {team.name}
       </span>
     </div>
@@ -402,7 +402,7 @@ function KitJersey({
   return (
     <svg
       viewBox="0 0 200 236"
-      className="w-24 h-28 sm:w-28 sm:h-32 drop-shadow-[0_5px_8px_rgba(0,0,0,0.5)]"
+      className="w-32 h-40 sm:w-36 sm:h-44 drop-shadow-[0_5px_8px_rgba(0,0,0,0.5)]"
       aria-hidden="true"
     >
       <g stroke={kit.outline} strokeWidth={4} strokeLinejoin="round" strokeLinecap="round">
