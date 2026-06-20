@@ -72,11 +72,15 @@ game state yet (no Stores/queries for gameplay).
   farScale=S_FAR*ZOOM.
   Players projected off-screen (±60px horizontally) are culled.
   Calls a `HudState` listener each frame to push score/time/possession to React.
-- `src/client/pages/HomePage.tsx` — hosts the canvas, scoreboard HUD, intro +
-  team-select overlays, GOAL flash, and the controls legend. A `phase` state
-  drives everything: `'intro'` (Kick Off button) → `'select'` (team picker) →
-  `'playing'` (engine running). The engine is instantiated in a `useEffect`
-  keyed on `phase`/`gameKey`, passing the two selected `TeamData`. The
+- `src/client/pages/HomePage.tsx` — hosts the canvas, scoreboard HUD,
+  team-select overlay, GOAL flash, and the controls legend. A `phase` state
+  drives everything: `'select'` (team picker, the DEFAULT/landing screen) →
+  `'playing'` (engine running). The old `'intro'` Kick Off splash was REMOVED
+  on user request ("get rid of the kick off screen, no other action there, just
+  bring to team selection right away") — the game now lands directly on the team
+  picker. `handleRematch` just bumps `gameKey` to re-mount the canvas game (the
+  boot effect keys off `phase`/`gameKey`). The engine is instantiated in a
+  `useEffect` keyed on `phase`/`gameKey`, passing the two selected `TeamData`. The
   scoreboard is a compact FIFA pill (`absolute top-3 left-3`): `[home bar][abbr]
   [home]–[away][abbr][away bar][clock]`, colours/abbrs from the selected teams.
   Header shows Rematch (replay same teams) + Change teams (back to select) while

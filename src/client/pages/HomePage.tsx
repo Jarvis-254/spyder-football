@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Play, RotateCcw, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import {
   PitchKickGame,
   CANVAS_W,
@@ -22,7 +22,7 @@ const CONTROLS: { keys: string; label: string }[] = [
   { keys: 'Q', label: 'Switch player' },
 ];
 
-type Phase = 'intro' | 'select' | 'playing';
+type Phase = 'select' | 'playing';
 
 function fmtTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -37,7 +37,7 @@ function wrap(i: number, n: number) {
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<PitchKickGame | null>(null);
-  const [phase, setPhase] = useState<Phase>('intro');
+  const [phase, setPhase] = useState<Phase>('select');
   const [gameKey, setGameKey] = useState(0);
 
   // Default the team picker to the next/live World Cup 2026 fixture so the
@@ -120,15 +120,14 @@ export default function HomePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [phase, activeSide, homeIdx]);
 
-  const handleKickOff = () => setPhase('select');
   const handleRestart = () => {
     setPhase('select');
     setActiveSide('home');
   };
   const handleRematch = () => {
-    setPhase('intro');
+    // Re-mount the canvas game (the boot effect keys off gameKey) for a fresh
+    // kickoff with the same teams.
     setGameKey((k) => k + 1);
-    requestAnimationFrame(() => setPhase('playing'));
   };
 
   return (
@@ -237,28 +236,6 @@ export default function HomePage() {
             >
               {hud.message}
             </span>
-          </div>
-        )}
-
-        {/* Intro overlay */}
-        {phase === 'intro' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-night-950/85 backdrop-blur-sm animate-fade-in">
-            <h1 className="font-display text-6xl sm:text-7xl text-white tracking-wide mb-2">
-              READY TO <span className="text-volt-500">KICK OFF?</span>
-            </h1>
-            <p className="font-body text-night-300 mb-8 text-center max-w-md">
-              Pick your nation, then the CPU's — full 11v11 with real squads and
-              formations, the TV camera follows the ball. Your active player wears
-              the solid ▼ marker; a hollow ▽ hints who{' '}
-              <span className="text-volt-400 font-semibold">Q</span> switches you to.
-            </p>
-            <button
-              onClick={handleKickOff}
-              className="group flex items-center gap-3 bg-volt-500 text-night-950 font-heading uppercase tracking-widest text-lg px-10 py-4 rounded-full hover:bg-volt-400 transition-all hover:scale-105 active:scale-95"
-            >
-              <Play size={22} className="fill-night-950" />
-              Kick Off
-            </button>
           </div>
         )}
 
