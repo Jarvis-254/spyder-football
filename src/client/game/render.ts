@@ -689,10 +689,14 @@ function drawHumanoid(
     ctx.translate(diveSx * diveLayout * 13, diveSy * diveLayout * 13 - diveAirborne * 9);
     ctx.rotate(diveSx * diveLayout * 1.5);
   } else if (sliding) {
-    // Lay the body out flat along the projected slide direction, sliding
-    // forward and staying low on the turf — no airborne lift.
-    ctx.translate(slideSx * slideLayout * 14, slideSy * slideLayout * 14 - slideLayout * 4);
-    ctx.rotate(slideSx * slideLayout * 1.45);
+    // Sliding tackle = FEET-FIRST. The body is drawn with the feet at the origin
+    // and the head pointing up, so we must do the OPPOSITE of the keeper dive:
+    // push the whole figure FORWARD along the slide direction (the planted feet
+    // lead) and RECLINE the torso BACKWARD (negative rotation → the head trails
+    // behind, low to the turf). This reads as a player skidding in legs-first,
+    // not diving head-first. Stays grounded (no airborne lift).
+    ctx.translate(slideSx * slideLayout * 13, slideSy * slideLayout * 13);
+    ctx.rotate(-slideSx * slideLayout * 1.2);
   } else {
     // Lean into the run direction for a sense of momentum.
     const lean = moving ? clamp(p.vx / SPRINT_SPEED, -1, 1) * 0.13 : 0;
@@ -726,6 +730,17 @@ function drawHumanoid(
     f1Lift = 4.5;
     f2x = -fx * 3;
     f2y = -fy * 1.2;
+    f2Lift = 0;
+  }
+  if (sliding) {
+    // Slide pose: the leading leg stretches out forward toward the ball, the
+    // trailing leg tucks under — both planted on the turf (no running swing or
+    // foot-lift). Combined with the reclined torso this sells a legs-first skid.
+    f1x = fx * 11;
+    f1y = fy * 4.4;
+    f1Lift = 0;
+    f2x = fx * 4;
+    f2y = fy * 1.6;
     f2Lift = 0;
   }
 

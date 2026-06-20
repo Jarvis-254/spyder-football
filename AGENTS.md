@@ -899,10 +899,17 @@ game state yet (no Stores/queries for gameplay).
     mistimed). While `sliding`, the W (gkRush) and D (standing tackle) triggers
     are suppressed. Timers decremented in the global per-player loop +
     slideCooldown in the engine timer block; both reset in resetKickoff. RENDER
-    (render.ts drawPlayer): grounded full-body lay-out along the projected
-    slideDir — generalizes the keeper-dive layout (`slideLayout` ramps flat
-    fast over the first 45% then sits back up) but with NO airborne lift; the
-    shadow stretches along the slide dir.
+    (render.ts drawPlayer): FEET-FIRST grounded skid. `slideLayout` ramps flat
+    fast over the first 45% then sits back up, with NO airborne lift. CRITICAL:
+    the body is drawn feet-at-origin/head-up, so the slide must do the OPPOSITE
+    of the keeper dive — push the figure FORWARD along the projected slideDir
+    (planted feet lead) and recline the torso BACKWARD via a NEGATIVE rotation
+    (`rotate(-slideSx*slideLayout*1.2)`) so the head trails low. Leg override
+    (next to the kicking one): leading leg extended forward fx*11, trailing leg
+    tucked fx*4, both planted (no swing/lift). FIXED on user note "the player
+    dives head forward while anchored legs on the ground — opposite of a slide";
+    the original reused the dive's POSITIVE rotation (head-first). Shadow
+    stretches along slideDir.
   - C (hold) = contain: auto-jockeys to a spot 30px goal-side of the away
     carrier at JOCKEY_SPEED=180 (E sprint → SPRINT*0.94), auto-pokes at
     reach CONTROL_DIST+8 (0.5s cooldown). With loose ball, C hunts the ball.
