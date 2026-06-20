@@ -41,8 +41,13 @@ export const PLAYER_SCALE = M(1.85) / 44;
 // ---- Ball height (z-axis) -------------------------------------------------
 // The pitch sim is on the ground plane (x,y); `z` is height ABOVE the grass so
 // the ball can be lofted, chipped, crossed and bounce like in FIFA. Gravity is
-// exaggerated vs real (9.8 m/s²) for snappy arcade arcs.
-export const GRAVITY = M(46); // downward accel on the ball while airborne (px/s²)
+// modestly above real (9.8 m/s² ≈ M(9.8)) — enough for a snappy feel without the
+// tight up-and-over lob that the old M(46) (~4.7× real) forced on EVERY lofted
+// ball. At M(18) a struck ball arcs over ~18–20m, so a typical shot is still
+// RISING (or low and flat) as it reaches the goal instead of dropping into it.
+// Lob passes/throw-ins solve vz from a target hang-time T, so their landing
+// spot & timing are unchanged here — only the visible arc flattens (realistic).
+export const GRAVITY = M(18); // downward accel on the ball while airborne (px/s²)
 export const BOUNCE = 0.58; // vertical restitution on landing
 /** A player can only trap/control the ball when it's below this height. */
 export const CONTROL_HEIGHT = M(1.25);

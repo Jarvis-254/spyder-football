@@ -804,14 +804,20 @@ game state yet (no Stores/queries for gameplay).
   isn't limp and a full-charge drive doesn't rocket past the target); launch caps
   lowered short 880→780, through 1050→920 (≈134/158 km/h ground-pass ceiling).
   SHOTS:
-  loft=M(4)+charge*M(9.5) (apex height = loft²/(2·GRAVITY) → a placed effort
-  skims a few px off the deck, a full-power drive arcs to ~M(2), just under the
-  M(2.44) bar — a clearly-visible RISING shot that scales with power). BUMPED
-  from the old loft=M(0.6)+charge*M(7) on user note "when shooting the ball is
-  always on the ground — it should lift at least a little, stronger shots more"
-  (the old velocities only lifted ~0.1px at low charge / ~13px at full, barely
-  visible vs GRAVITY=M(46)). CPU shot (updateAwayCarrier, p.x<300) was a flat
-  loft=0 (always grounded) → now M(8) so the CPU's strikes arc too. LONG PASS (A) = BALLISTIC LOFT: solves hang time T=clamp(0.62+
+  loft uses an APEX-HEIGHT model: shotApex=clamp(M(0.1)+charge²*M(2.3),0,M(2.35)),
+  loft=sqrt(2*GRAVITY*shotApex). The apex scales with charge² so most shots stay
+  LOW/driven and only a well-charged strike climbs. CPU shot uses a fixed low
+  apex M(0.7). This REPLACED the old fixed loft=M(4)+charge*M(9.5) (and the CPU's
+  flat M(8)) on user note "the shot is always in the same arc — it's rare to see
+  shots go up and down into goal; usually they're mostly on ground or going up
+  and up. Is your physics right?". ROOT CAUSE: the integration was correct but
+  GRAVITY was M(46) ≈4.7× real, forcing every lofted ball into a tight up-and-over
+  parabola that peaked within ~10m, so any 15-20m shot was always DESCENDING into
+  goal. FIX: GRAVITY M(46)→M(18) (~1.8× real) so a struck ball arcs over ~18-20m
+  and a typical shot is still RISING (or low/flat) at the line. Lob passes/throw-
+  ins/keeper distribution are T-parameterized (vz=0.5*GRAVITY*T, hspeed=d/T) so
+  their landing spot & TIMING are unchanged by the gravity drop — only the visible
+  arc flattens (more realistic). LONG PASS (A) = BALLISTIC LOFT: solves hang time T=clamp(0.62+
   d/M(70)+charge*0.25,0.6,1.5), vz=0.5*GRAVITY*T, hspeed=d/T*1.12 → flies
   over defenders, drops on receiver. Short/through stay grounded. handleGoals
   rejects balls with z>M(2.44) (over the bar). drawBall lifts sprite by

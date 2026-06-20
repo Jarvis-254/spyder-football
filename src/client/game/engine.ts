@@ -1128,11 +1128,16 @@ export class PitchKickGame {
     // out near 137 km/h — matching the hardest real strikes, not the old
     // 230 km/h cannon. Harder shots rise more — a full blast lifts toward
     // the top corners, while a placed side-foot stays low and skims the turf.
-    // `loft` is the UPWARD launch velocity (px/s); with GRAVITY=M(46) the apex
-    // height is loft²/(2·GRAVITY), so these values arc the ball a few px off
-    // the deck on a placed effort up to ~M(2) (just under the M(2.44) bar) on
-    // a full-power drive — a clearly-visible rising shot that scales with power.
-    const loft = M(4) + charge * M(9.5);
+    // `loft` is the UPWARD launch velocity (px/s). Rather than a FIXED arc (which
+    // made every shot the same up-and-over lob regardless of range), we pick the
+    // APEX HEIGHT the shot should reach and solve loft = sqrt(2·GRAVITY·apex).
+    // The apex scales with charge² so most shots stay LOW and driven — only a
+    // well-charged strike climbs. With the (now realistic) GRAVITY the apex is
+    // reached ~18–20m away, so from a typical shooting position the ball is still
+    // RISING as it crosses the line (a real driven/rising shot), not dropping in.
+    // apex is capped just under the M(2.44) bar so the peak can't sail over.
+    const shotApex = clamp(M(0.1) + charge * charge * M(2.3), 0, M(2.35));
+    const loft = Math.sqrt(2 * GRAVITY * shotApex);
     // Shots scatter — and the harder you hit it, the LESS precise it is (FIFA:
     // a power blast can fly wide of the post, while a placed side-foot is far
     // tighter). The charge term dominates so full-power efforts genuinely miss
@@ -2330,10 +2335,10 @@ export class PitchKickGame {
         { x: 0, y: gy },
         600 * shotPowerMul(p.ratings),
         p,
-        // Lift the CPU's strike off the deck too (was a flat 0 = always
-        // grounded) so its shots arc like the player's — a rising drive that
-        // stays under the bar.
-        M(8),
+        // Same apex-height model as the human shot: aim for a low ~M(0.7) peak
+        // so the CPU's strike is a driven, mostly-rising effort (loft solved
+        // from the new realistic GRAVITY) rather than a fixed up-and-over lob.
+        Math.sqrt(2 * GRAVITY * M(0.7)),
         0.05 * shotSpreadMul(p.ratings),
       );
       return;
