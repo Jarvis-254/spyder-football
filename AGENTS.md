@@ -112,7 +112,14 @@ game state yet (no Stores/queries for gameplay).
   RE-STAGES everyone via `placePracticePlayers` (early bug: it only moved the ball,
   leaving players upfield → pitch looked empty/stuck after a goal). The top-left
   scoreboard pill is HIDDEN in practice (`mode !== 'practice'` in HomePage); a
-  small volt "PRACTICE" badge sits there instead.
+  small volt "PRACTICE" badge sits there instead. PASS-BACK-TO-OWN-GK FIX: control
+  follows your pass (passToTarget sets `controlled = target`), so passing to your
+  own keeper made HIM the controlled player — and `updateHomeTeammates` SKIPS the
+  controlled player, so the GK never auto-distributed, teammates ran back to
+  support him at the goal line, and play stalled. Fix: `updateControlled` starts
+  with a practice guard that immediately hands control off any home GK to the
+  nearest outfielder, so the keeper is always auto-managed (holds then clears via
+  homeKeeperDistribute) and never a user-controlled dead end.
 - FULL-SCREEN LAYOUT (added after "make the field take the full screen, thinner
   top bar, no left/right margins, wider field"): outer is `flex flex-col` (NOT
   items-center, no page padding). Header is SLIM (`px-4 py-2`, brand `text-2xl

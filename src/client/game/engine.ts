@@ -790,6 +790,17 @@ export class PitchKickGame {
   }
 
   private updateControlled(dt: number) {
+    // Practice: you never take over the keeper. A pass back to your own GK
+    // switches control to him in the normal flow (control follows your pass),
+    // but the keeper is auto-managed (he holds then clears upfield like a CPU
+    // GK). Hand control to the nearest outfielder so he isn't a stuck,
+    // user-controlled dead end and the team keeps offering support.
+    if (this.practice && this.controlled.isGK) {
+      const out = this.homePlayers.filter((q) => !q.isGK);
+      const alt = this.nearestTo(out, this.ball);
+      if (alt) this.controlled = alt;
+    }
+
     const p = this.controlled;
     const owns = this.owner === p;
     const carrier =
