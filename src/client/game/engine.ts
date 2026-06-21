@@ -203,11 +203,17 @@ export class PitchKickGame {
   readonly homeTeam: TeamData;
   readonly awayTeam: TeamData;
 
+  /** Free-form practice: a handful of home players + a lone away keeper, with
+   *  no match structure (no clock, offside, throw-ins/corners or kickoffs) — a
+   *  low-pressure pitch to rehearse passing and shooting against a live GK. */
+  readonly practice: boolean;
+
   constructor(
     canvas: HTMLCanvasElement,
     listener: StateListener,
     homeTeam: TeamData,
     awayTeam: TeamData,
+    opts: { practice?: boolean } = {},
   ) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D context unavailable');
@@ -215,6 +221,7 @@ export class PitchKickGame {
     this.listener = listener;
     this.homeTeam = homeTeam;
     this.awayTeam = awayTeam;
+    this.practice = opts.practice ?? false;
 
     this.homePlayers = homeTeam.players.map((p, i) =>
       this.makePlayer('home', p.pos, i),
@@ -356,6 +363,63 @@ export class PitchKickGame {
     this.celebrateTeam = null;
     this.pendingKickoff = null;
     this.scorer = null;
+
+    if (this.practice) this.placePracticePlayers();
+  }
+
+  /** Free-form practice setup: home keeper on his line, a handful of outfielders
+   *  staged across the middle/attacking third, the lone away keeper guarding the
+   *  right-hand goal, and the ball on a central player's feet. No kickoff shape
+   *  — just space to knock it about and shoot at a live GK. */
+  private placePracticePlayers() {
+    const out = this.homePlayers.filter((p) => !p.isGK);
+    const xs = [FIELD_W * 0.42, FIELD_W * 0.56, FIELD_W * 0.5, FIELD_W * 0.64];
+    const ys = [FIELD_H * 0.32, FIELD_H * 0.34, FIELD_H * 0.68, FIELD_H * 0.66];
+    out.forEach((p, i) => {
+      p.x = xs[i % xs.length];
+      p.y = ys[i % ys.length];
+      p.anchor.x = p.x;
+      p.anchor.y = p.y;
+      p.vx = p.vy = 0;
+      p.facing = { x: 1, y: 0 };
+    });
+
+    const hgk = this.homePlayers[0];
+    hgk.x = hgk.anchor.x = M(4);
+    hgk.y = hgk.anchor.y = FIELD_H / 2;
+
+    const agk = this.awayPlayers[0];
+    agk.x = agk.anchor.x = FIELD_W - M(4);
+    agk.y = agk.anchor.y = FIELD_H / 2;
+
+    const starter =
+      out.length ? out[Math.floor(out.length / 2)] : this.homePlayers[0];
+    this.controlled = starter;
+    this.ball.x = starter.x + 14;
+    this.ball.y = starter.y;
+    this.ball.z = 0;
+    this.ball.vx = this.ball.vy = this.ball.vz = 0;
+    this.owner = starter;
+    this.lastTouchTeam = 'home';
+    this.camX = clamp(starter.x, CAM_MIN, CAM_MAX);
+    this.camY = clamp(starter.y, CAM_Y_MIN, CAM_Y_MAX);
+  }
+
+  /** Put the ball back in the middle of the practice area as a loose ball the
+   *  user runs onto — no restart ceremony, keeping free play continuous. */
+  private practiceResetBall() {
+    this.owner = null;
+    this.ball.x = FIELD_W * 0.5;
+    this.ball.y = FIELD_H / 2;
+    this.ball.z = 0;
+    this.ball.vx = this.ball.vy = this.ball.vz = 0;
+    this.lastKicker = null;
+    this.lastTouchTeam = 'home';
+    this.kickerLock = 0;
+    this.passReceiver = null;
+    this.aerialReceiver = null;
+    this.ballFree = 0;
+    this.gkHoldTimer = 0;
   }
 
   private setMessage(msg: string, secs: number) {
@@ -556,7 +620,7 @@ export class PitchKickGame {
       return;
     }
 
-    if (this.elapsed < MATCH_REAL_SECS) {
+    if (!this.practice && this.elapsed < MATCH_REAL_SECS) {
       this.elapsed += dt;
       if (this.elapsed >= MATCH_REAL_SECS) {
         this.elapsed = MATCH_REAL_SECS;
@@ -1528,6 +1592,7 @@ export class PitchKickGame {
    */
   private snapshotOffside(kicker: PlayerEntity) {
     this.offsideFlags.clear();
+    if (this.practice) return; // no offside in free-form practice
     const team = kicker.team;
     const mates = team === 'home' ? this.homePlayers : this.awayPlayers;
     const opps = team === 'home' ? this.awayPlayers : this.homePlayers;
@@ -2223,6 +2288,10 @@ export class PitchKickGame {
   // ---- CPU team AI ---------------------------------------------------------
 
   private updateAwayTeam(dt: number) {
+    if (this.practice) {
+      this.updatePracticeAway(dt);
+      return;
+    }
     const carrier =
       this.owner && this.owner.team === 'away' ? this.owner : null;
     // The keeper isn't a generic chaser — his own keeperPlan decides when to
@@ -2293,6 +2362,35 @@ export class PitchKickGame {
     }
   }
 
+  /** Practice: the lone away keeper holds his line and saves shots; if he
+   *  gathers the ball he boots it back out so free play keeps flowing. */
+  private updatePracticeAway(dt: number) {
+    const gk = this.awayPlayers[0];
+    if (!gk) return;
+    if (this.owner === gk) {
+      this.updateAwayCarrier(gk, dt);
+    } else {
+      const plan = this.offBallPlan(gk, AWAY_FORMATION_SPEED);
+      this.moveToward(gk, plan.pos, plan.speed, dt);
+    }
+  }
+
+  /** Practice clearance: the away keeper has no teammates to find, so he simply
+   *  hoofs the gathered ball back upfield toward the home players so the user
+   *  regains it and can keep practising. */
+  private practiceKeeperClear(gk: PlayerEntity) {
+    const out = this.homePlayers.filter((p) => !p.isGK);
+    const target =
+      this.nearestTo(out, { x: FIELD_W * 0.5, y: FIELD_H / 2 }) ??
+      ({ x: FIELD_W * 0.5, y: FIELD_H / 2 } as { x: number; y: number });
+    const aim = { x: target.x, y: target.y };
+    const d = dist(this.ball, aim);
+    const T = clamp(0.6 + d / M(70), 0.6, 1.4);
+    const vz = 0.5 * GRAVITY * T;
+    const hspeed = Math.min((d / T) * 1.1, 1500);
+    this.kickBallToward(aim, hspeed, gk, vz, 0.05);
+  }
+
   private updateAwayCarrier(p: PlayerEntity, dt: number) {
     // Taking a throw-in: stand and throw it back into play by hand (after a
     // short beat so the hold reads on screen), to the most open teammate.
@@ -2315,7 +2413,8 @@ export class PitchKickGame {
       if (this.cpuDecision > 0) return;
       this.gkHoldTimer = 0;
       this.cpuDecision = 0.5;
-      this.keeperDistribute(p);
+      if (this.practice) this.practiceKeeperClear(p);
+      else this.keeperDistribute(p);
       return;
     }
 
@@ -2974,6 +3073,18 @@ export class PitchKickGame {
     const b = this.ball;
     const last = this.lastTouchTeam;
 
+    // Practice: no throw-ins / corners / goal kicks. A ball that leaves the
+    // pitch (other than a shot crossing the keeper's goal line, left for
+    // handleGoals) is simply respawned in the middle to keep free play going.
+    if (this.practice) {
+      const inMouth = b.y > goalTop && b.y < goalBottom;
+      if (b.x > FIELD_W && inMouth && b.z <= M(2.44)) return; // a goal — leave it
+      if (b.x < 0 || b.x > FIELD_W || b.y < 0 || b.y > FIELD_H) {
+        this.practiceResetBall();
+      }
+      return;
+    }
+
     // ---- Touchlines → throw-in ----
     if (b.y < 0 || b.y > FIELD_H) {
       const outY = b.y < 0 ? 0 : FIELD_H;
@@ -3141,6 +3252,19 @@ export class PitchKickGame {
     if (!inMouth) return;
     // Over the bar — a ball higher than the crossbar (2.44 m) isn't a goal.
     if (this.ball.z > M(2.44)) return;
+
+    // Practice: count strikes into the keeper's (right-hand) goal and flash a
+    // quick GOAL!, then respawn — no celebration / kickoff sequence.
+    if (this.practice) {
+      if (this.ball.x >= FIELD_W - 2) {
+        this.homeScore += 1;
+        this.setMessage('GOAL!', 1.3);
+        this.practiceResetBall();
+      } else if (this.ball.x <= 2) {
+        this.practiceResetBall();
+      }
+      return;
+    }
 
     if (this.ball.x <= 2) {
       this.awayScore += 1;

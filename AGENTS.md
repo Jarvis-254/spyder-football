@@ -72,19 +72,40 @@ game state yet (no Stores/queries for gameplay).
   farScale=S_FAR*ZOOM.
   Players projected off-screen (±60px horizontally) are culled.
   Calls a `HudState` listener each frame to push score/time/possession to React.
-- `src/client/pages/HomePage.tsx` — hosts the canvas, scoreboard HUD,
-  team-select overlay, GOAL flash, and the controls legend. A `phase` state
-  drives everything: `'select'` (team picker, the DEFAULT/landing screen) →
-  `'playing'` (engine running). The old `'intro'` Kick Off splash was REMOVED
-  on user request ("get rid of the kick off screen, no other action there, just
-  bring to team selection right away") — the game now lands directly on the team
-  picker. `handleRematch` just bumps `gameKey` to re-mount the canvas game (the
-  boot effect keys off `phase`/`gameKey`). The engine is instantiated in a
-  `useEffect` keyed on `phase`/`gameKey`, passing the two selected `TeamData`. The
-  scoreboard is a compact FIFA pill (`absolute top-3 left-3`): `[home bar][abbr]
-  [home]–[away][abbr][away bar][clock]`, colours/abbrs from the selected teams.
-  Header shows Rematch (replay same teams) + Change teams (back to select) while
-  playing.
+- `src/client/pages/HomePage.tsx` — hosts the canvas, scoreboard HUD, intro
+  menu, team-select overlay, GOAL flash, and the controls legend. A `phase` state
+  drives everything: `'intro'` (mode menu, the DEFAULT/landing screen) →
+  `'select'` (team picker, MATCH mode only) → `'playing'` (engine running). A
+  `mode` state (`'match' | 'practice'`) picks which flow. NOTE: the intro Kick
+  Off screen was previously removed then RE-ADDED (user wanted a second Practice
+  option) — it now has two `ModeCard`s: "PLAY MATCH" (→ select → playing) and
+  "PRACTICE" (→ playing directly, default teams). `introIdx` + a keydown effect
+  (←/→ choose, Enter confirm) mirror the select-screen feel; cards are also
+  clickable/hoverable. `startMode(m)` sets mode + routes. `handleRestart` (the
+  header "Menu" button) returns to `'intro'`. `handleRematch` bumps `gameKey` to
+  re-mount the canvas game (the boot effect keys off `phase`/`gameKey`). The
+  engine is instantiated in a `useEffect` keyed on `phase`/`gameKey`; for practice
+  it builds REDUCED `TeamData` (`home.players.slice(0,5)` kickoffFwd:4 + away
+  `slice(0,1)` GK-only kickoffFwd:0) and passes `{ practice: true }` as the 5th
+  constructor arg. The scoreboard is a compact FIFA pill (`absolute top-3 left-3`):
+  `[home bar][abbr][home]–[away][abbr][away bar][clock]` (clock pill shows
+  "PRACTICE" in practice mode), colours/abbrs from the selected teams. Header
+  shows Rematch (replay) + Menu (back to intro) while playing.
+- PRACTICE MODE (engine `practice` flag, set via the 5th constructor opts arg
+  `{ practice?: boolean }`): free-form rehearsal pitch — a few home players + a
+  lone away keeper, NO match structure. Engine guards (all gated on
+  `this.practice`): `placePracticePlayers()` (called at end of `resetKickoff`)
+  stages home outfielders across the middle/attacking third, keepers on their
+  lines, ball on a central player; clock/full-time skipped (update loop line
+  ~623); `snapshotOffside` early-returns (no offside); `updateAwayTeam` delegates
+  to `updatePracticeAway` (GK-only: saves via the normal keeper systems, and when
+  he gathers, `practiceKeeperClear` hoofs it back toward the home players instead
+  of `keeperDistribute` which would find no teammates); `checkOutOfPlay` respawns
+  the ball centrally via `practiceResetBall` instead of throw-ins/corners/goal
+  kicks; `handleGoals` counts strikes into the right (keeper's) goal as
+  `homeScore++` with a quick "GOAL!" then `practiceResetBall` — no celebration/
+  kickoff. The away GK saving/diving logic (`updateKeeperReactions`, `keeperParry`)
+  is UNCHANGED and works with a GK-only away side.
 - FULL-SCREEN LAYOUT (added after "make the field take the full screen, thinner
   top bar, no left/right margins, wider field"): outer is `flex flex-col` (NOT
   items-center, no page padding). Header is SLIM (`px-4 py-2`, brand `text-2xl

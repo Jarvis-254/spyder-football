@@ -21,7 +21,8 @@ const CONTROLS: { keys: string; label: string }[] = [
   { keys: 'Q', label: 'Switch player' },
 ];
 
-type Phase = 'select' | 'playing';
+type Phase = 'intro' | 'select' | 'playing';
+type Mode = 'match' | 'practice';
 
 function fmtTime(secs: number) {
   const m = Math.floor(secs / 60);
@@ -36,7 +37,9 @@ function wrap(i: number, n: number) {
 export default function HomePage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<PitchKickGame | null>(null);
-  const [phase, setPhase] = useState<Phase>('select');
+  const [phase, setPhase] = useState<Phase>('intro');
+  const [mode, setMode] = useState<Mode>('match');
+  const [introIdx, setIntroIdx] = useState(0); // 0 = Play Match, 1 = Practice
   const [gameKey, setGameKey] = useState(0);
 
   // Default the team picker to the next/live World Cup 2026 fixture so the
@@ -71,7 +74,25 @@ export default function HomePage() {
   // Boot the canvas game once the match phase begins.
   useEffect(() => {
     if (phase !== 'playing' || !canvasRef.current) return;
-    const game = new PitchKickGame(canvasRef.current, setHud, home, away);
+    let game: PitchKickGame;
+    if (mode === 'practice') {
+      // Free-form practice: a handful of home players + a lone away keeper.
+      const pHome: TeamData = {
+        ...home,
+        players: home.players.slice(0, 5),
+        kickoffFwd: 4,
+      };
+      const pAway: TeamData = {
+        ...away,
+        players: away.players.slice(0, 1),
+        kickoffFwd: 0,
+      };
+      game = new PitchKickGame(canvasRef.current, setHud, pHome, pAway, {
+        practice: true,
+      });
+    } else {
+      game = new PitchKickGame(canvasRef.current, setHud, home, away);
+    }
     gameRef.current = game;
     game.start();
     return () => {
@@ -119,8 +140,34 @@ export default function HomePage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [phase, activeSide, homeIdx]);
 
+  // Intro menu keyboard navigation (← → to choose, Enter to confirm).
+  useEffect(() => {
+    if (phase !== 'intro') return;
+    const onKey = (e: KeyboardEvent) => {
+      const k = e.code;
+      if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'Enter')
+        e.preventDefault();
+      if (k === 'ArrowLeft') setIntroIdx(0);
+      else if (k === 'ArrowRight') setIntroIdx(1);
+      else if (k === 'Enter') startMode(introIdx === 0 ? 'match' : 'practice');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, introIdx]);
+
+  const startMode = (m: Mode) => {
+    setMode(m);
+    if (m === 'match') {
+      setPhase('select');
+      setActiveSide('home');
+    } else {
+      setPhase('playing');
+    }
+  };
+
   const handleRestart = () => {
-    setPhase('select');
+    setPhase('intro');
     setActiveSide('home');
   };
   const handleRematch = () => {
@@ -154,7 +201,7 @@ export default function HomePage() {
               onClick={handleRestart}
               className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
             >
-              Change teams
+              Menu
             </button>
           </div>
         )}
@@ -200,7 +247,7 @@ export default function HomePage() {
               style={{ backgroundColor: away.color }}
             />
             <span className="flex items-center px-2.5 bg-volt-500 text-night-950 text-sm tabular-nums font-bold tracking-tight">
-              {fmtTime(hud.clock)}
+              {mode === 'practice' ? 'PRACTICE' : fmtTime(hud.clock)}
             </span>
           </div>
         )}
@@ -235,6 +282,39 @@ export default function HomePage() {
             >
               {hud.message}
             </span>
+          </div>
+        )}
+
+        {/* Intro / mode-select overlay */}
+        {phase === 'intro' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-night-950/92 backdrop-blur-sm animate-fade-in px-4">
+            <span className="font-heading uppercase text-xs sm:text-sm tracking-[0.4em] text-night-300 mb-2">
+              Kick Off
+            </span>
+            <h2 className="font-display text-5xl sm:text-7xl text-white tracking-wide mb-2 text-center">
+              WORLD CUP <span className="text-volt-500">2026</span>
+            </h2>
+            <p className="font-body text-night-300 text-base sm:text-lg mb-8 text-center">
+              <span className="text-volt-400 font-semibold">← →</span> to choose
+              · <span className="text-volt-400 font-semibold">Enter</span> or
+              click to start
+            </p>
+            <div className="flex flex-col sm:flex-row items-stretch gap-5 sm:gap-8">
+              <ModeCard
+                title="PLAY MATCH"
+                blurb="Full 11v11 against the CPU. Pick your nation and go."
+                active={introIdx === 0}
+                onHover={() => setIntroIdx(0)}
+                onClick={() => startMode('match')}
+              />
+              <ModeCard
+                title="PRACTICE"
+                blurb="Free-form pitch — a few teammates and a lone keeper. No clock, no pressure. Learn the controls and rehearse passing & shooting."
+                active={introIdx === 1}
+                onHover={() => setIntroIdx(1)}
+                onClick={() => startMode('practice')}
+              />
+            </div>
           </div>
         )}
 
@@ -298,6 +378,51 @@ export default function HomePage() {
         <span className="text-volt-400">Q</span> to jump to the hinted ▽ player.
       </p>
     </div>
+  );
+}
+
+function ModeCard({
+  title,
+  blurb,
+  active,
+  onHover,
+  onClick,
+}: {
+  title: string;
+  blurb: string;
+  active: boolean;
+  onHover: () => void;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onMouseEnter={onHover}
+      onFocus={onHover}
+      onClick={onClick}
+      className={`group flex flex-col text-left w-72 sm:w-80 rounded-2xl p-6 transition-all duration-200 ${
+        active
+          ? 'ring-4 ring-volt-500 scale-105 shadow-xl shadow-black/40 bg-night-900'
+          : 'ring-1 ring-night-700 opacity-80 hover:opacity-100 bg-night-900/70'
+      }`}
+    >
+      <span
+        className={`font-display text-3xl sm:text-4xl tracking-wide mb-3 ${
+          active ? 'text-volt-500' : 'text-white'
+        }`}
+      >
+        {title}
+      </span>
+      <span className="font-body text-sm text-night-300 leading-relaxed">
+        {blurb}
+      </span>
+      <span
+        className={`mt-5 font-heading uppercase text-xs tracking-[0.25em] transition-colors ${
+          active ? 'text-volt-400' : 'text-night-500'
+        }`}
+      >
+        {active ? '▶ Start' : 'Select'}
+      </span>
+    </button>
   );
 }
 
