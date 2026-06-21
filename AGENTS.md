@@ -123,8 +123,8 @@ game state yet (no Stores/queries for gameplay).
   symptom (GK "teleported/disappeared into the box"): `constrainKeeperWithBall`
   snaps a ball-holding keeper back inside his 16.5m box every frame, so a GK who
   came upfield to collect the back-pass got yanked ~16m back the instant he gained
-  possession. Fix: that fn early-returns for the HOME keeper in practice, so he
-  collects the pass with his feet wherever he is, holds, then clears upfield.
+  possession. See the general HANDLING rule below — the box-clamp now only applies
+  while the keeper is actually handling (in hands).
 - FULL-SCREEN LAYOUT (added after "make the field take the full screen, thinner
   top bar, no left/right margins, wider field"): outer is `flex flex-col` (NOT
   items-center, no page padding). Header is SLIM (`px-4 py-2`, brand `text-2xl
@@ -459,6 +459,23 @@ game state yet (no Stores/queries for gameplay).
   RESET to 0 in resolvePossession whenever a keeper FIRST gains the ball
   (`if (best.isGK && best!==prev) gkHoldTimer=0`) so a stale timer from a prior
   possession can't make him distribute instantly.
+  HANDLING / BACK-PASS RULE (added after "GK takes the ball in hands and instantly
+  kicks out — he shouldn't take it in hands if outside the box; and in ALL modes
+  he shouldn't handle a pass straight from a teammate"): real laws — a keeper may
+  only handle (a) INSIDE his own penalty area and (b) NOT off a deliberate kick by
+  a team-mate. New `gkHandling` instance flag + helpers `keeperInOwnBox(gk)` and
+  `keeperMayHandle(gk, fromKicker)` (fromKicker = `this.lastKicker`; back-pass =
+  same-team non-GK kicker). On any keeper gaining possession (resolvePossession),
+  `gkHandling = keeperMayHandle(best, lastKicker)`. When TRUE → existing catch
+  behaviour (scoop into hands, 1.1 stealProtect, hold-then-distribute, box-clamp).
+  When FALSE → he controls at his FEET: the `dribble()` GK scoop branch is gated
+  `owner.isGK && this.gkHandling` (else falls through to the normal feet-dribble),
+  `constrainKeeperWithBall` early-returns unless `gkHandling` (so he's NOT snapped
+  back into the box — this is what fixed the practice back-pass teleport), and no
+  hand-catch protection. `keeperParry` (a hand action) is likewise gated on
+  `keeperInOwnBox(best)` AND not a back-pass. Applies in ALL modes, not just
+  practice. He still auto-distributes via homeKeeperDistribute / practiceKeeperClear
+  (a FOOT kick), just without the hands visual/box-lock.
   REACTION-BASED SAVE REACH (added after "whatever I shoot the keeper keeps
   deflecting it — how does he reach it so well? he shouldn't catch/deflect strong
   shots from close so easily"): the keeper "saves" by gaining possession when the

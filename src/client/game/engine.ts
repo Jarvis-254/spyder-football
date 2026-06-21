@@ -2266,6 +2266,38 @@ export class PitchKickGame {
 
   private gkHoldTimer = 0;
 
+  /** Whether the keeper currently in possession is HANDLING the ball (holding
+   *  it in his hands). False = he may only play it with his FEET, because the
+   *  laws forbid handling: he's OUTSIDE his own penalty area, or the ball came
+   *  straight from a deliberate kick by a teammate (the back-pass rule). When
+   *  false the keeper dribbles/controls like an outfielder (no scoop into
+   *  hands, no box-clamp, no protected catch). */
+  private gkHandling = false;
+
+  /** Is the keeper inside his OWN penalty area (where handling is legal)? */
+  private keeperInOwnBox(gk: PlayerEntity): boolean {
+    const ownGoalX = gk.team === 'home' ? 0 : FIELD_W;
+    const depth = M(16.5); // penalty area depth
+    const halfW = M(20.16); // half its width
+    const mid = FIELD_H / 2;
+    const inX =
+      gk.team === 'home' ? gk.x <= ownGoalX + depth : gk.x >= ownGoalX - depth;
+    return inX && Math.abs(gk.y - mid) <= halfW;
+  }
+
+  /** May this keeper legally take the ball in his HANDS right now? No if he's
+   *  outside his box, or the ball was just deliberately kicked to him by a
+   *  team-mate (back-pass rule). `fromKicker` is whoever last kicked it. */
+  private keeperMayHandle(
+    gk: PlayerEntity,
+    fromKicker: PlayerEntity | null,
+  ): boolean {
+    if (!this.keeperInOwnBox(gk)) return false;
+    const backPass =
+      !!fromKicker && fromKicker.team === gk.team && !fromKicker.isGK;
+    return !backPass;
+  }
+
   private homeKeeperDistribute(dt: number) {
     const gk = this.owner;
     if (!gk) return;
@@ -2753,12 +2785,20 @@ export class PitchKickGame {
     // Threshold lowered 820→600 (≈ a charge-0.36 shot) so only WEAK/placed
     // shots are caught cleanly — any firmly-struck shot is parried, not held
     // (user: "the GK catches shots too easily, it should only catch weaker ones").
+    // A keeper can't HANDLE a deliberate back-pass from a team-mate, so he
+    // can't parry one either — let it run to his feet to be controlled.
+    const backPassToKeeper =
+      best?.isGK &&
+      this.lastKicker?.team === best.team &&
+      this.lastKicker !== best;
     if (
       best &&
       best.isGK &&
       best !== prev &&
       (!prev || prev.team !== best.team) &&
-      ballSpeed > 600
+      ballSpeed > 600 &&
+      !backPassToKeeper &&
+      this.keeperInOwnBox(best)
     ) {
       this.keeperParry(best, ballSpeed);
       return;
@@ -2791,23 +2831,34 @@ export class PitchKickGame {
         this.controlled = best;
       }
       if (best.isGK) {
-        // A keeper CATCHES cleanly: secure the ball with a longer protection
-        // window so a striker can't instantly poke the held ball back out and
-        // tap in the rebound. The rush (if any) has done its job.
-        this.stealProtect = Math.max(this.stealProtect, 1.1);
-        this.gkRush = 0;
-        // Start the hold-in-hands clock fresh on a NEW catch so the keeper
-        // visibly gathers and holds the ball before he distributes (instead of
-        // booting it the instant he touches it with a stale timer).
-        if (best !== prev) {
-          this.gkHoldTimer = 0;
-          // A catch is only a DIVING save if the ball was genuinely beyond his
-          // standing reach — a ball gathered near his body is taken standing,
-          // so he doesn't dive on every shot close to him.
-          const off = this.ball.y - best.y;
-          if (Math.abs(off) > M(1.7) && (best.diveTimer ?? 0) <= 0) {
-            this.triggerKeeperDive(best, Math.sign(off));
+        // May he legally take it in his hands? Not outside his box, and not off
+        // a deliberate team-mate back-pass — in those cases he controls it with
+        // his FEET like an outfielder (no scoop, no box-clamp, no protected
+        // catch). Otherwise it's a clean catch.
+        this.gkHandling = this.keeperMayHandle(best, this.lastKicker);
+        if (this.gkHandling) {
+          // A keeper CATCHES cleanly: secure the ball with a longer protection
+          // window so a striker can't instantly poke the held ball back out and
+          // tap in the rebound. The rush (if any) has done its job.
+          this.stealProtect = Math.max(this.stealProtect, 1.1);
+          this.gkRush = 0;
+          // Start the hold-in-hands clock fresh on a NEW catch so the keeper
+          // visibly gathers and holds the ball before he distributes (instead
+          // of booting it the instant he touches it with a stale timer).
+          if (best !== prev) {
+            this.gkHoldTimer = 0;
+            // A catch is only a DIVING save if the ball was genuinely beyond
+            // his standing reach — a ball gathered near his body is taken
+            // standing, so he doesn't dive on every shot close to him.
+            const off = this.ball.y - best.y;
+            if (Math.abs(off) > M(1.7) && (best.diveTimer ?? 0) <= 0) {
+              this.triggerKeeperDive(best, Math.sign(off));
+            }
           }
+        } else if (best !== prev) {
+          // Controlling at his feet: reset the clock so he settles it before
+          // playing out (no instant boot), but no hand-catch protection.
+          this.gkHoldTimer = 0;
         }
       }
       this.dribble(best);
@@ -2838,7 +2889,7 @@ export class PitchKickGame {
     // front of his body. The ball rises from the ground (a quick gather/pickup
     // animation) and is glued there — it never squirts out in front toward an
     // onrushing striker. Held at M(0.95) (below CONTROL_HEIGHT so he keeps it).
-    if (owner.isGK) {
+    if (owner.isGK && this.gkHandling) {
       // Held tight against the chest — a small forward offset so the ball reads
       // as cradled in his hands, not floating out in front of him.
       const hold = owner.r * 0.25;
@@ -3012,10 +3063,11 @@ export class PitchKickGame {
   private constrainKeeperWithBall() {
     const gk = this.owner;
     if (!gk || !gk.isGK) return;
-    // Practice: a back-pass to your keeper is collected with his FEET wherever
-    // he is, so don't yank him back into the box (the snap looked like he
-    // teleported/disappeared). He holds briefly then clears upfield in place.
-    if (this.practice && gk.team === 'home') return;
+    // Only a keeper HOLDING the ball in his hands is bound to his box. When he
+    // is controlling it at his FEET (outside the box, or off a team-mate
+    // back-pass) he may move freely like any outfielder — don't snap him back
+    // into the area (that snap looked like he teleported/disappeared).
+    if (!this.gkHandling) return;
     const ownGoalX = gk.team === 'home' ? 0 : FIELD_W;
     const depth = M(16.5); // penalty area is 16.5 m deep
     const halfW = M(20.16); // ...and 40.32 m wide
