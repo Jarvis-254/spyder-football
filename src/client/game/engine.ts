@@ -259,7 +259,10 @@ export class PitchKickGame {
 
   private kitFor(p: PlayerEntity): Kit {
     const t = p.team === 'home' ? this.homeTeam : this.awayTeam;
-    return p.isGK ? t.gkKit : t.kit;
+    if (p.isGK) return t.gkKit;
+    // The visiting (away) side wears its change kit so the two outfield kits
+    // never clash with the home colours.
+    return p.team === 'away' ? t.awayKit : t.kit;
   }
 
   // ---- lifecycle ----------------------------------------------------------

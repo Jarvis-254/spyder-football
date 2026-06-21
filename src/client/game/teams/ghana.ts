@@ -9,6 +9,7 @@ export const ghana: TeamData = {
   color: '#0a7a3b',
   textColor: '#ffffff',
   kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#15171c', sleeve: '#0e1014', outline: '#c8102e', shorts: '#15171c' },
   gkKit: { shirt: '#0a7a3b', sleeve: '#075c2c', outline: '#033017' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

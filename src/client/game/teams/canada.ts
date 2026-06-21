@@ -9,6 +9,7 @@ export const canada: TeamData = {
   color: '#d52b1e',
   textColor: '#ffffff',
   kit: { shirt: '#d52b1e', sleeve: '#a81f16', outline: '#5e110c', shorts: '#a81f16' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#c8102e', shorts: '#f5f5f5' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

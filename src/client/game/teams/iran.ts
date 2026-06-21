@@ -9,6 +9,7 @@ export const iran: TeamData = {
   color: '#d11a2a',
   textColor: '#ffffff',
   kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#c8102e', sleeve: '#a30d24', outline: '#5e0816', shorts: '#c8102e' },
   gkKit: { shirt: '#1f9d55', sleeve: '#147a40', outline: '#0a4523' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

@@ -9,6 +9,7 @@ export const morocco: TeamData = {
   color: '#c1272d',
   textColor: '#ffffff',
   kit: { shirt: '#c1272d', sleeve: '#991e23', outline: '#5a1114', shorts: '#0a7a3b' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#a3122e', shorts: '#f5f5f5' },
   gkKit: { shirt: '#16a34a', sleeve: '#107a37', outline: '#08461f' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

@@ -9,6 +9,7 @@ export const netherlands: TeamData = {
   color: '#f36c21',
   textColor: '#ffffff',
   kit: { shirt: '#f36c21', sleeve: '#d4571a', outline: '#7a3210', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#16224d', sleeve: '#111a3b', outline: '#080f24', shorts: '#16224d' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

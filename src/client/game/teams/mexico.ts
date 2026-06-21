@@ -9,6 +9,7 @@ export const mexico: TeamData = {
   color: '#0a6b3a',
   textColor: '#ffffff',
   kit: { shirt: '#0a6b3a', sleeve: '#08572f', outline: '#043019', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#15171c', sleeve: '#0e1014', outline: '#0a7a47', shorts: '#15171c' },
   gkKit: { shirt: '#fb3acb', sleeve: '#d41ba8', outline: '#7a0a60' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

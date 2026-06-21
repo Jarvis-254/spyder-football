@@ -9,6 +9,7 @@ export const austria: TeamData = {
   color: '#ed2939',
   textColor: '#ffffff',
   kit: { shirt: '#ed2939', sleeve: '#bd1f2d', outline: '#5e0f16', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#b4123a', shorts: '#f5f5f5' },
   gkKit: { shirt: '#2bd47a', sleeve: '#17a95c', outline: '#0a5f33' },
   kickoffFwd: 9,
   players: buildSquad(F_4231, [

@@ -9,6 +9,7 @@ export const panama: TeamData = {
   color: '#c8102e',
   textColor: '#ffffff',
   kit: { shirt: '#c8102e', sleeve: '#1a3a6b', outline: '#0c2452', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#1b2a6e', shorts: '#f5f5f5' },
   gkKit: { shirt: '#2bd47a', sleeve: '#17a95c', outline: '#0a5f33' },
   kickoffFwd: 9,
   players: buildSquad(F_442, [

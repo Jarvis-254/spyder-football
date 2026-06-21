@@ -9,6 +9,7 @@ export const ivoryCoast: TeamData = {
   color: '#f77f00',
   textColor: '#ffffff',
   kit: { shirt: '#f77f00', sleeve: '#c66400', outline: '#7a3e00', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#f07a1a', shorts: '#f5f5f5' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

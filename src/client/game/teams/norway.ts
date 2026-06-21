@@ -9,6 +9,7 @@ export const norway: TeamData = {
   color: '#c8102e',
   textColor: '#ffffff',
   kit: { shirt: '#c8102e', sleeve: '#a00b24', outline: '#5e0714', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#16224d', shorts: '#f5f5f5' },
   gkKit: { shirt: '#16a34a', sleeve: '#107a37', outline: '#08461f' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

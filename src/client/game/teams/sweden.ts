@@ -9,6 +9,7 @@ export const sweden: TeamData = {
   color: '#1f6bd6',
   textColor: '#ffd200',
   kit: { shirt: '#ffd200', sleeve: '#d8b000', outline: '#7a6300', shorts: '#1652a8' },
+  awayKit: { shirt: '#16224d', sleeve: '#111a3b', outline: '#080f24', shorts: '#16224d' },
   gkKit: { shirt: '#1f6bd6', sleeve: '#1652a8', outline: '#0a2a5e' },
   kickoffFwd: 9,
   players: buildSquad(F_442, [

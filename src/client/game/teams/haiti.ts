@@ -9,6 +9,7 @@ export const haiti: TeamData = {
   color: '#1f3a93',
   textColor: '#ffffff',
   kit: { shirt: '#1f3a93', sleeve: '#162b6f', outline: '#0a153a', shorts: '#16181d' },
+  awayKit: { shirt: '#c8102e', sleeve: '#a30d24', outline: '#5e0816', shorts: '#c8102e' },
   gkKit: { shirt: '#c8102e', sleeve: '#a00b24', outline: '#5e0714' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

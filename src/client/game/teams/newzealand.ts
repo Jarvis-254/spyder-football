@@ -9,6 +9,7 @@ export const newZealand: TeamData = {
   color: '#111827',
   textColor: '#ffffff',
   kit: { shirt: '#ffffff', sleeve: '#e6e6e6', outline: '#9ca3af', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#15171c', sleeve: '#0e1014', outline: '#444a52', shorts: '#15171c' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_442, [

@@ -9,6 +9,7 @@ export const brazil: TeamData = {
   color: '#fbe108',
   textColor: '#0a6b3a',
   kit: { shirt: '#fbe108', sleeve: '#1c9e57', outline: '#0a6b3a', shorts: '#1b3fae' },
+  awayKit: { shirt: '#2b56c7', sleeve: '#2146a3', outline: '#11265e', shorts: '#2b56c7' },
   gkKit: { shirt: '#2b7fff', sleeve: '#1f63cc', outline: '#0a2f6e' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

@@ -9,6 +9,7 @@ export const egypt: TeamData = {
   color: '#c8102e',
   textColor: '#ffffff',
   kit: { shirt: '#c8102e', sleeve: '#a00b24', outline: '#5e0714', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#c8102e', shorts: '#f5f5f5' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

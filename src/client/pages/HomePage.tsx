@@ -353,6 +353,7 @@ export default function HomePage() {
                 tag="CPU"
                 active={activeSide === 'away'}
                 locked={false}
+                useAwayKit
               />
             </div>
           </div>
@@ -469,11 +470,13 @@ function TeamCrest({
   tag,
   active,
   locked,
+  useAwayKit = false,
 }: {
   team: TeamData;
   tag: string;
   active: boolean;
   locked: boolean;
+  useAwayKit?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center gap-4 w-56 sm:w-64">
@@ -508,7 +511,7 @@ function TeamCrest({
               <Check size={18} strokeWidth={3} />
             </span>
           )}
-          <KitJersey kit={team.kit} />
+          <KitJersey kit={useAwayKit ? team.awayKit : team.kit} />
         </div>
         <ChevronRight
           size={36}

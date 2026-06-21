@@ -9,6 +9,7 @@ export const capeVerde: TeamData = {
   color: '#1f3a93',
   textColor: '#ffffff',
   kit: { shirt: '#1f3a93', sleeve: '#162b6f', outline: '#0a153a', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#1b3a78', shorts: '#f5f5f5' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

@@ -9,6 +9,7 @@ export const saudiArabia: TeamData = {
   color: '#0a7a3b',
   textColor: '#ffffff',
   kit: { shirt: '#0a7a3b', sleeve: '#075c2c', outline: '#033017', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#0f7a3d', sleeve: '#0c6633', outline: '#063d1f', shorts: '#0f7a3d' },
   gkKit: { shirt: '#f59e0b', sleeve: '#c47b06', outline: '#7a4d02' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

@@ -9,6 +9,7 @@ export const uruguay: TeamData = {
   color: '#5aa6dd',
   textColor: '#15171c',
   kit: { shirt: '#5aa6dd', sleeve: '#3d87bd', outline: '#1f4d70', shorts: '#16181d' },
+  awayKit: { shirt: '#15171c', sleeve: '#0e1014', outline: '#3a4a6e', shorts: '#15171c' },
   gkKit: { shirt: '#1f1f24', sleeve: '#34343c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_433, [

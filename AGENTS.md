@@ -146,9 +146,19 @@ game state yet (no Stores/queries for gameplay).
   kickoff striker's real shirt number, on a dark gradient block faintly tinted by
   team.color; the full team name sits below in `text-lg sm:text-xl`. Volt ring +
   pulsing chevrons when active. `readableOn(hex)` picks a legible number colour.
+- AWAY (CHANGE) KITS (added on user request "populate real data away kits... when
+  choosing the away team, set the kit colour to the away colour, not home for both"):
+  `TeamData` now has an `awayKit: Kit` alongside `kit` (home). Every one of the 48
+  nation files was populated with researched real change-strip colours (white-out,
+  navy, black, etc.). Wiring: (1) engine `kitFor(p)` returns `t.awayKit` for the
+  visiting side's outfielders (GK still uses `gkKit`, home still `kit`) so on-pitch
+  the away team wears its change kit; (2) HomePage `TeamCrest` takes a `useAwayKit`
+  prop — the CPU (right) crest passes `useAwayKit` so its `KitJersey` renders
+  `team.awayKit`; the YOU (home) crest still shows `team.kit`. `color`/`textColor`
+  (UI accents/scoreboard) intentionally stay the home identity colours.
 - TEAM DATA (per-country, small files): `src/client/game/teams/` — one file per
   nation exporting a `TeamData` (name, abbr, formation string, color/textColor
-  for UI, outfield `kit` + `gkKit`, `kickoffFwd`, and 11 `players`
+  for UI, outfield `kit` + `awayKit` + `gkKit`, `kickoffFwd`, and 11 `players`
   {num,name,pos}; index 0 = GK). Each `Kit` has shirt/sleeve/outline + an optional
   `shorts` (real home-kit shorts colour, e.g. Germany black, Argentina/Uruguay
   black, England/Spain navy, Brazil/Colombia/Sweden blue, Portugal/Senegal/

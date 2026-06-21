@@ -105,8 +105,10 @@ export interface TeamData {
   color: string;
   /** Legible colour to draw on top of `color`. */
   textColor: string;
-  /** Outfield kit. */
+  /** Outfield kit (home / primary). */
   kit: Kit;
+  /** Outfield away (change) kit, worn when this team is the visitor. */
+  awayKit: Kit;
   /** Goalkeeper kit (distinct, like real football). */
   gkKit: Kit;
   /** Index of the player who takes the kickoff (usually the central striker). */

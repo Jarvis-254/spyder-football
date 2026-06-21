@@ -9,6 +9,7 @@ export const qatar: TeamData = {
   color: '#8a1538',
   textColor: '#ffffff',
   kit: { shirt: '#8a1538', sleeve: '#6c102b', outline: '#3a0817', shorts: '#f1f2f4' },
+  awayKit: { shirt: '#f5f5f5', sleeve: '#e3e3e3', outline: '#7a153b', shorts: '#f5f5f5' },
   gkKit: { shirt: '#111827', sleeve: '#0a0f1c', outline: '#000000' },
   kickoffFwd: 9,
   players: buildSquad(F_352, [
