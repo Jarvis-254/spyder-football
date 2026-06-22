@@ -479,7 +479,7 @@ function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-night-900 ring-1 ring-night-700 shadow-2xl shadow-black/60 animate-slide-up"
+        className="relative w-full max-w-3xl max-h-[90vh] rounded-2xl bg-night-900 ring-1 ring-night-700 shadow-2xl shadow-black/60 animate-slide-up"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-night-900 border-b border-night-800">
@@ -505,7 +505,8 @@ function SettingsModal({
             automatically and the game stays paused while this is open.
           </p>
 
-          {BINDING_GROUPS.map((group) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 items-start">
+            {BINDING_GROUPS.map((group) => (
             <div key={group.title} className="mb-5">
               <h4 className="font-heading uppercase text-[11px] tracking-[0.25em] text-night-500 mb-2">
                 {group.title}
@@ -537,7 +538,8 @@ function SettingsModal({
                 ))}
               </div>
             </div>
-          ))}
+            ))}
+          </div>
         </div>
 
         <div className="sticky bottom-0 flex items-center justify-between px-6 py-4 bg-night-900 border-t border-night-800">
