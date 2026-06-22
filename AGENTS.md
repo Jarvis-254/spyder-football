@@ -146,6 +146,31 @@ game state yet (no Stores/queries for gameplay).
   kickoff striker's real shirt number, on a dark gradient block faintly tinted by
   team.color; the full team name sits below in `text-lg sm:text-xl`. Volt ring +
   pulsing chevrons when active. `readableOn(hex)` picks a legible number colour.
+- KEY BINDINGS + SETTINGS POPUP (added on user request "settings menu item that
+  pauses the game and opens a popup to edit key mappings, persisted in
+  localStorage, with a reset-to-defaults"): `src/client/game/keybindings.ts` is
+  the single source of truth — `GameAction` union (moveUp/Down/Left/Right, sprint,
+  shot, shortPass, longPass, throughPass, switchPlayer, contain), `DEFAULT_BINDINGS`
+  (values MUST equal the literal codes used inside engine.ts: ArrowUp/Down/Left/
+  Right, KeyE/D/S/A/W/Q/C), `loadBindings`/`saveBindings` (localStorage key
+  `wc2026.keybindings`, merges over defaults so missing keys fall back),
+  `assignKey` (rebinds + SWAPS with any action already holding that code so every
+  action stays uniquely bound), `codeLabel` (KeyW→W, ArrowUp→↑, etc.),
+  `controlsLegend(b)` (builds the bottom 9-up legend) and `BINDING_GROUPS`
+  (Movement / Actions, for the modal). Engine: treats DEFAULT codes as CANONICAL —
+  `setBindings(b)` builds a `keyRemap` Map(physical→canonical) and onKeyDown/onKeyUp
+  translate `e.code` through it, so ALL existing `this.keys.has('KeyW')` logic is
+  untouched. Engine also has `setPaused(b)` (loop keeps running but skips
+  update/render/emit while paused; clears held keys/charge so nothing sticks) and a
+  5th constructor opt `bindings`. HomePage: `bindings` state seeded from
+  `loadBindings()`, passed to both engine constructions; a `Settings` (gear) button
+  is ALWAYS in the header. openSettings → `game.setPaused(true)` + modal;
+  closeSettings → unpause. `applyBindings(next)` = setState + saveBindings +
+  `game.setBindings(next)` (live). `SettingsModal` rebinds via a capture-phase
+  keydown listener (so it beats the engine), Esc cancels, Done/backdrop closes,
+  Reset-to-defaults applies `{...DEFAULT_BINDINGS}` (disabled when already default).
+  The bottom legend + tip text are now derived from live bindings via codeLabel.
+  Intro/select keyboard-nav effects gate on `!settingsOpen`.
 - AWAY (CHANGE) KITS (added on user request "populate real data away kits... when
   choosing the away team, set the kit colour to the away colour, not home for both"):
   `TeamData` now has an `awayKit: Kit` alongside `kit` (home). Every one of the 48

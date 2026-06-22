@@ -7,6 +7,11 @@
 
 import type { TeamData, Kit } from './teams/types';
 import {
+  DEFAULT_BINDINGS,
+  ACTION_ORDER,
+  type KeyBindings,
+} from './keybindings';
+import {
   FIELD_W,
   FIELD_H,
   M,
@@ -89,6 +94,13 @@ export class PitchKickGame {
   private keys = new Set<string>();
   private justPressed: string[] = [];
   private justReleased: string[] = [];
+  /** Paused (e.g. settings popup open): the loop keeps rendering the frozen
+   *  frame but skips simulation + input. */
+  private paused = false;
+  /** Maps a user's physical KeyboardEvent.code to the engine's canonical code
+   *  (the default code for whichever action that key is bound to). Empty = use
+   *  the physical code as-is (default bindings). */
+  private keyRemap = new Map<string, string>();
   /** Kick key currently charging (FIFA: press charges, release kicks). */
   private chargeKey: string | null = null;
   private chargeTime = 0;
@@ -213,7 +225,7 @@ export class PitchKickGame {
     listener: StateListener,
     homeTeam: TeamData,
     awayTeam: TeamData,
-    opts: { practice?: boolean } = {},
+    opts: { practice?: boolean; bindings?: KeyBindings } = {},
   ) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D context unavailable');
@@ -222,6 +234,7 @@ export class PitchKickGame {
     this.homeTeam = homeTeam;
     this.awayTeam = awayTeam;
     this.practice = opts.practice ?? false;
+    if (opts.bindings) this.setBindings(opts.bindings);
 
     this.homePlayers = homeTeam.players.map((p, i) =>
       this.makePlayer('home', p.pos, i),
@@ -284,17 +297,48 @@ export class PitchKickGame {
     window.removeEventListener('keyup', this.onKeyUp);
   }
 
+  /** Pause/resume the simulation (e.g. while the settings popup is open). The
+   *  render loop keeps drawing the frozen frame; input is ignored and any held
+   *  keys are released so nothing sticks when play resumes. */
+  setPaused(paused: boolean) {
+    this.paused = paused;
+    if (paused) {
+      this.keys.clear();
+      this.justPressed.length = 0;
+      this.justReleased.length = 0;
+      this.chargeKey = null;
+      this.chargeTime = 0;
+    }
+  }
+
+  /** Apply user key bindings. Builds a physical→canonical remap so the rest of
+   *  the engine keeps reasoning in terms of the default codes. */
+  setBindings(bindings: KeyBindings) {
+    this.keyRemap.clear();
+    for (const action of ACTION_ORDER) {
+      const physical = bindings[action];
+      const canonical = DEFAULT_BINDINGS[action];
+      if (physical && physical !== canonical) {
+        this.keyRemap.set(physical, canonical);
+      }
+    }
+  }
+
   // ---- input --------------------------------------------------------------
 
   private onKeyDown = (e: KeyboardEvent) => {
-    if (MOVE_KEYS.has(e.code) || ACTION_KEYS.has(e.code)) e.preventDefault();
-    if (!e.repeat && ACTION_KEYS.has(e.code)) this.justPressed.push(e.code);
-    this.keys.add(e.code);
+    if (this.paused) return;
+    const code = this.keyRemap.get(e.code) ?? e.code;
+    if (MOVE_KEYS.has(code) || ACTION_KEYS.has(code)) e.preventDefault();
+    if (!e.repeat && ACTION_KEYS.has(code)) this.justPressed.push(code);
+    this.keys.add(code);
   };
 
   private onKeyUp = (e: KeyboardEvent) => {
-    if (KICK_KEYS.has(e.code)) this.justReleased.push(e.code);
-    this.keys.delete(e.code);
+    if (this.paused) return;
+    const code = this.keyRemap.get(e.code) ?? e.code;
+    if (KICK_KEYS.has(code)) this.justReleased.push(code);
+    this.keys.delete(code);
   };
 
   // ---- helpers ------------------------------------------------------------
@@ -543,9 +587,11 @@ export class PitchKickGame {
     this.last = now;
     if (dt > 0.05) dt = 0.05;
 
-    this.update(dt);
-    this.render();
-    this.emit();
+    if (!this.paused) {
+      this.update(dt);
+      this.render();
+      this.emit();
+    }
     this.raf = requestAnimationFrame(this.loop);
   };
 

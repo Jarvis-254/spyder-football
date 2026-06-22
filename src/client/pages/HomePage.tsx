@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { RotateCcw, ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import {
+  RotateCcw,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  Settings,
+  X,
+} from 'lucide-react';
 import {
   PitchKickGame,
   CANVAS_W,
@@ -8,18 +15,17 @@ import {
 } from '@/client/game/engine';
 import { TEAMS, type TeamData } from '@/client/game/teams';
 import { findCurrentOrNextMatch, type Match } from '@/client/game/teams/schedule';
-
-const CONTROLS: { keys: string; label: string }[] = [
-  { keys: '← ↑ ↓ →', label: 'Move' },
-  { keys: 'E', label: 'Sprint' },
-  { keys: 'D', label: 'Shot / Tackle' },
-  { keys: 'S', label: 'Short pass' },
-  { keys: 'A', label: 'Long pass / Slide tackle' },
-  { keys: 'W', label: 'Through pass' },
-  { keys: 'Q + W', label: 'Lofted through ball' },
-  { keys: 'C', label: 'Contain (hold)' },
-  { keys: 'Q', label: 'Switch player' },
-];
+import {
+  loadBindings,
+  saveBindings,
+  assignKey,
+  codeLabel,
+  controlsLegend,
+  BINDING_GROUPS,
+  DEFAULT_BINDINGS,
+  type KeyBindings,
+  type GameAction,
+} from '@/client/game/keybindings';
 
 type Phase = 'intro' | 'select' | 'playing';
 type Mode = 'match' | 'practice';
@@ -41,6 +47,8 @@ export default function HomePage() {
   const [mode, setMode] = useState<Mode>('match');
   const [introIdx, setIntroIdx] = useState(0); // 0 = Play Match, 1 = Practice
   const [gameKey, setGameKey] = useState(0);
+  const [bindings, setBindings] = useState<KeyBindings>(() => loadBindings());
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Default the team picker to the next/live World Cup 2026 fixture so the
   // matchup feels topical the moment you open the game.
@@ -89,9 +97,12 @@ export default function HomePage() {
       };
       game = new PitchKickGame(canvasRef.current, setHud, pHome, pAway, {
         practice: true,
+        bindings,
       });
     } else {
-      game = new PitchKickGame(canvasRef.current, setHud, home, away);
+      game = new PitchKickGame(canvasRef.current, setHud, home, away, {
+        bindings,
+      });
     }
     gameRef.current = game;
     game.start();
@@ -104,7 +115,7 @@ export default function HomePage() {
 
   // FIFA-style keyboard navigation on the team-select screen.
   useEffect(() => {
-    if (phase !== 'select') return;
+    if (phase !== 'select' || settingsOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const k = e.code;
       if (
@@ -138,11 +149,11 @@ export default function HomePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, activeSide, homeIdx]);
+  }, [phase, activeSide, homeIdx, settingsOpen]);
 
   // Intro menu keyboard navigation (← → to choose, Enter to confirm).
   useEffect(() => {
-    if (phase !== 'intro') return;
+    if (phase !== 'intro' || settingsOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const k = e.code;
       if (k === 'ArrowLeft' || k === 'ArrowRight' || k === 'Enter')
@@ -154,7 +165,7 @@ export default function HomePage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, introIdx]);
+  }, [phase, introIdx, settingsOpen]);
 
   const startMode = (m: Mode) => {
     setMode(m);
@@ -176,6 +187,21 @@ export default function HomePage() {
     setGameKey((k) => k + 1);
   };
 
+  const openSettings = () => {
+    gameRef.current?.setPaused(true);
+    setSettingsOpen(true);
+  };
+  const closeSettings = () => {
+    setSettingsOpen(false);
+    gameRef.current?.setPaused(false);
+  };
+  // Persist + push every binding change to the live engine immediately.
+  const applyBindings = (next: KeyBindings) => {
+    setBindings(next);
+    saveBindings(next);
+    gameRef.current?.setBindings(next);
+  };
+
   return (
     <div className="min-h-full flex flex-col bg-night-950">
       {/* Brand bar — slim so the pitch gets the screen */}
@@ -188,23 +214,33 @@ export default function HomePage() {
             Arcade Football
           </span>
         </div>
-        {phase === 'playing' && (
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleRematch}
-              className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
-            >
-              <RotateCcw size={15} />
-              Rematch
-            </button>
-            <button
-              onClick={handleRestart}
-              className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
-            >
-              Menu
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {phase === 'playing' && (
+            <>
+              <button
+                onClick={handleRematch}
+                className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
+              >
+                <RotateCcw size={15} />
+                Rematch
+              </button>
+              <button
+                onClick={handleRestart}
+                className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
+              >
+                Menu
+              </button>
+            </>
+          )}
+          <button
+            onClick={openSettings}
+            aria-label="Settings"
+            className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors"
+          >
+            <Settings size={16} />
+            <span className="hidden sm:inline">Settings</span>
+          </button>
+        </div>
       </header>
 
       {/* Pitch — full-bleed width, height-capped so it stays on one screen */}
@@ -362,7 +398,7 @@ export default function HomePage() {
 
       {/* Controls legend */}
       <div className="w-full px-4 mt-2 grid grid-cols-3 sm:grid-cols-5 md:grid-cols-9 gap-2 animate-fade-in">
-        {CONTROLS.map((c) => (
+        {controlsLegend(bindings).map((c) => (
           <div
             key={c.label}
             className="flex flex-col items-center gap-0.5 bg-night-900 border border-night-800 rounded-lg py-1.5 px-2"
@@ -380,11 +416,147 @@ export default function HomePage() {
       <p className="mt-2 mb-3 px-4 text-xs text-night-300 font-body text-center max-w-3xl mx-auto">
         Tip: hold a pass/shot key to charge the power gauge, release to kick —
         a quick tap plays it soft. Defending: tap{' '}
-        <span className="text-volt-400">D</span> for a standing tackle, hold{' '}
-        <span className="text-volt-400">C</span> to contain and auto-poke, or
-        just stay touch-tight — sustained contact wins the ball. Press{' '}
-        <span className="text-volt-400">Q</span> to jump to the hinted ▽ player.
+        <span className="text-volt-400">{codeLabel(bindings.shot)}</span> for a
+        standing tackle, hold{' '}
+        <span className="text-volt-400">{codeLabel(bindings.contain)}</span> to
+        contain and auto-poke, or just stay touch-tight — sustained contact
+        wins the ball. Press{' '}
+        <span className="text-volt-400">{codeLabel(bindings.switchPlayer)}</span>{' '}
+        to jump to the hinted ▽ player.
       </p>
+
+      {settingsOpen && (
+        <SettingsModal
+          bindings={bindings}
+          onChange={applyBindings}
+          onReset={() => applyBindings({ ...DEFAULT_BINDINGS })}
+          onClose={closeSettings}
+        />
+      )}
+    </div>
+  );
+}
+
+function SettingsModal({
+  bindings,
+  onChange,
+  onReset,
+  onClose,
+}: {
+  bindings: KeyBindings;
+  onChange: (next: KeyBindings) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  // The action currently waiting to capture its next keypress (null = idle).
+  const [capturing, setCapturing] = useState<GameAction | null>(null);
+
+  // While capturing, the next keydown anywhere becomes the new binding.
+  useEffect(() => {
+    if (!capturing) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.code === 'Escape') {
+        setCapturing(null);
+        return;
+      }
+      onChange(assignKey(bindings, capturing, e.code));
+      setCapturing(null);
+    };
+    // Capture phase so we intercept before the game's own listeners.
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [capturing, bindings, onChange]);
+
+  const isDefault = (Object.keys(DEFAULT_BINDINGS) as GameAction[]).every(
+    (a) => bindings[a] === DEFAULT_BINDINGS[a],
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-night-950/80 backdrop-blur-sm p-4 animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-night-900 ring-1 ring-night-700 shadow-2xl shadow-black/60 animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 flex items-center justify-between px-6 py-4 bg-night-900 border-b border-night-800">
+          <div className="flex items-center gap-2">
+            <Settings size={18} className="text-volt-400" />
+            <h3 className="font-display text-2xl text-white tracking-wide">
+              SETTINGS
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close settings"
+            className="text-night-300 hover:text-white transition-colors"
+          >
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="px-6 py-4">
+          <p className="font-body text-sm text-night-300 mb-4">
+            Click a key to rebind it, then press any key. Press{' '}
+            <span className="text-volt-400">Esc</span> to cancel. Changes save
+            automatically and the game stays paused while this is open.
+          </p>
+
+          {BINDING_GROUPS.map((group) => (
+            <div key={group.title} className="mb-5">
+              <h4 className="font-heading uppercase text-[11px] tracking-[0.25em] text-night-500 mb-2">
+                {group.title}
+              </h4>
+              <div className="flex flex-col gap-1.5">
+                {group.actions.map(({ action, label }) => (
+                  <div
+                    key={action}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-night-950/60 px-3 py-2"
+                  >
+                    <span className="font-body text-sm text-white">
+                      {label}
+                    </span>
+                    <button
+                      onClick={() =>
+                        setCapturing((c) => (c === action ? null : action))
+                      }
+                      className={`min-w-[5rem] rounded-md px-3 py-1.5 font-heading text-sm tracking-wider transition-colors ${
+                        capturing === action
+                          ? 'bg-volt-500 text-night-950 animate-pulse'
+                          : 'bg-night-800 text-volt-400 hover:bg-night-700'
+                      }`}
+                    >
+                      {capturing === action
+                        ? 'Press…'
+                        : codeLabel(bindings[action])}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="sticky bottom-0 flex items-center justify-between px-6 py-4 bg-night-900 border-t border-night-800">
+          <button
+            onClick={onReset}
+            disabled={isDefault}
+            className="flex items-center gap-2 font-heading uppercase text-xs tracking-wider text-night-300 hover:text-volt-400 transition-colors disabled:opacity-40 disabled:hover:text-night-300"
+          >
+            <RotateCcw size={14} />
+            Reset to defaults
+          </button>
+          <button
+            onClick={onClose}
+            className="rounded-md bg-volt-500 px-5 py-2 font-heading uppercase text-xs tracking-wider text-night-950 hover:bg-volt-400 transition-colors"
+          >
+            Done
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
