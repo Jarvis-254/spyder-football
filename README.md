@@ -1,15 +1,15 @@
-# World Cup 2026
+# SpyderFootball
 
 An arcade, FIFA-style football game that runs entirely in your browser. Pick a national team and play a full match against the CPU — rendered live on `<canvas>` with a proper TV-style broadcast tele camera, just like FIFA.
 
 <p align="center">
-  <a href="https://worldcup2026.modelence.ai/">
-    <img src="docs/screenshot.png" alt="World Cup 2026 gameplay" width="800">
+  <a href="https:spydergames.co.ke/">
+    <img src="docs/screenshot.png" alt="SpyderFootball 2026 gameplay" width="800">
   </a>
 </p>
 
 <p align="center">
-  Play: <strong><a href="https://worldcup2026.modelence.ai/">worldcup2026.modelence.ai</a></strong>
+  Play: <strong><a href="https://spydergames.co.ke/">spydergames.co.ke</a></strong>
 </p>
 
 ## Features

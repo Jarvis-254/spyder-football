@@ -208,7 +208,7 @@ export default function HomePage() {
       <header className="w-full flex items-center justify-between px-4 py-2 animate-fade-in">
         <div className="flex items-baseline gap-3">
           <span className="font-display text-2xl sm:text-3xl leading-none tracking-wide text-volt-500">
-            WORLD CUP <span className="text-white">2026</span>
+            SpyderFootball <span className="text-white">2026</span>
           </span>
           <span className="hidden md:inline font-heading uppercase text-[10px] tracking-[0.3em] text-night-300">
             Arcade Football

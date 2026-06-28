@@ -1,9 +1,9 @@
-## PROJECT: World Cup 2026 — arcade browser football game
+## PROJECT: SpyderFootball 2026 — arcade browser football game
 
-NOTE ON NAMING: the user-facing DISPLAY name is "World Cup 2026" (header logo in
+NOTE ON NAMING: the user-facing DISPLAY name is "SpyderFootball 2026" (header logo in
 HomePage, seoConfig siteName/description, stadium hoarding text in render.ts). The
-internal code CODENAME is still "PitchKick" — the engine class is `PitchKickGame`,
-the file is `engine.ts`, and this doc uses "PitchKick" as the project codename.
+internal code CODENAME is still "spydergames" — the engine class is `PitchKickGame`,
+the file is `engine.ts`, and this doc uses "Spydergames" as the project codename.
 Renaming display strings does NOT require renaming the class/files.
 
 A FIFA-like top-down football game played in the browser vs the CPU. Fully
