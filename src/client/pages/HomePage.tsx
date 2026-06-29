@@ -335,7 +335,7 @@ export default function HomePage() {
               Kick Off
             </span>
             <h2 className="font-display text-5xl sm:text-7xl text-white tracking-wide mb-2 text-center">
-              WORLD CUP <span className="text-volt-500">2026</span>
+              SpyderFootball <span className="text-volt-500">2026</span>
             </h2>
             <p className="font-body text-night-300 text-base sm:text-lg mb-8 text-center">
               <span className="text-volt-400 font-semibold">← →</span> to choose
