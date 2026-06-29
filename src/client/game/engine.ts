@@ -5,6 +5,7 @@
 // physics and gameplay tunables live in ./constants.ts, stateless helpers in
 // ./math.ts, and shared engine types in ./types.ts.
 
+import { MomentumEngine } from './momentum';
 import type { TeamData, Kit } from './teams/types';
 import {
   DEFAULT_BINDINGS,
@@ -87,6 +88,7 @@ const MOVE_KEYS = new Set([
 
 export class PitchKickGame {
   private ctx: CanvasRenderingContext2D;
+  private momentum = new MomentumEngine();
   private raf = 0;
   private last = 0;
   private running = false;
@@ -596,6 +598,7 @@ export class PitchKickGame {
   };
 
   private update(dt: number) {
+    this.momentum.update(dt) // Updating the players momentum gauges from the Momentum engine
     if (this.messageTimer > 0) {
       this.messageTimer -= dt;
       if (this.messageTimer <= 0) this.message = '';
@@ -3404,6 +3407,7 @@ export class PitchKickGame {
     if (this.practice) {
       if (this.ball.x >= FIELD_W - 2) {
         this.homeScore += 1;
+        this.momentum.goal("home");
         this.setMessage('GOAL!', 1.2);
         this.practiceResetBall();
         this.freeze = 1.0; // brief hold so the GOAL! reads before resuming
@@ -3415,6 +3419,7 @@ export class PitchKickGame {
 
     if (this.ball.x <= 2) {
       this.awayScore += 1;
+      this.momentum.goal("away");
       this.startCelebration(
         'away',
         `${this.awayTeam.name.toUpperCase()} SCORE`,
