@@ -92,6 +92,7 @@ export class PitchKickGame {
   private raf = 0;
   private last = 0;
   private running = false;
+  private matchId: string | null = null;
 
   private keys = new Set<string>();
   private justPressed: string[] = [];
@@ -282,8 +283,10 @@ export class PitchKickGame {
 
   // ---- lifecycle ----------------------------------------------------------
 
-  start() {
+  async start() {   // J.A.R.V.I.S Changed code #
     if (this.running) return;
+      // Ask the server to create a match first & startMatch() contacts Django to start a match which it responses with a uuid match id.
+    await this.startMatch();
     this.running = true;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -680,6 +683,12 @@ export class PitchKickGame {
               : 'FULL TIME — DRAW';
         this.setMessage(verdict, 9999);
         this.freeze = 9999;
+        
+        // Sending the results to the server for validation and to auth payment
+        // We sent Data using the Match id which django will create and store just to aviod cheating
+        // Like winner = 'Me' to '176i8'
+
+        this.sendMatchResult();
       }
     }
 
@@ -3519,5 +3528,55 @@ export class PitchKickGame {
       switchHint: this.switchHint,
       netRipple: this.netRipple,
     });
+  }
+  private async startMatch() {
+    const token = localStorage.getItem("access");
+
+    const response = await fetch(
+      "https://spydergames.co.ke/api/matches/start/",
+      {
+        method: "POST",
+        headers: {
+        Authorization: `Bearer ${token}`,},
+      }
+    );
+    if (!response.ok) {
+      throw new Error("Unable to start match.");
+    }
+
+    const data = await response.json();
+
+    this.matchId = data.match_id;
+}
+
+  private async sendMatchResult() {
+    if (!this.matchId) {
+      throw new Error("No match ID.");
+    }
+
+    const token = localStorage.getItem("access");
+
+    const response = await fetch(
+        `/api/matches/${this.matchId}/finish/`,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                home_score: this.homeScore,
+                away_score: this.awayScore,
+            }),
+        }
+    );
+
+    if (!response.ok) {
+        throw new Error("Unable to submit match result.");
+    }
+
+    const data = await response.json();
+
+    console.log("Match finished:", data);
   }
 }
