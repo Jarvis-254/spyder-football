@@ -283,10 +283,10 @@ export class PitchKickGame {
 
   // ---- lifecycle ----------------------------------------------------------
 
-  async start() {   // J.A.R.V.I.S Changed code #
+  start() {   // J.A.R.V.I.S Changed code #
     if (this.running) return;
       // Ask the server to create a match first & startMatch() contacts Django to start a match which it responses with a uuid match id.
-    await this.startMatch();
+    this.startMatch();
     this.running = true;
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
@@ -3533,7 +3533,7 @@ export class PitchKickGame {
     const token = localStorage.getItem("access");
 
     const response = await fetch(
-      "https://spydergames.co.ke/api/matches/start/",
+      "https://spydergames.pythonanywhere.com/api/matches/start/",
       {
         method: "POST",
         headers: {
@@ -3557,7 +3557,7 @@ export class PitchKickGame {
     const token = localStorage.getItem("access");
 
     const response = await fetch(
-        `/api/matches/${this.matchId}/finish/`,
+        `https://spyder-games.pythonanywhere.com/api/matches/${this.matchId}/finish/`,
         {
             method: "POST",
             headers: {
